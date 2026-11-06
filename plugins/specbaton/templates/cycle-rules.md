@@ -1,3 +1,4 @@
+<!-- specbaton:cycle-rules -->
 ## Ticket cycle (specbaton)
 
 ### Implement (test-first)

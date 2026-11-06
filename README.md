@@ -32,11 +32,13 @@ Then, in your project:
 2. `/specbaton-reviewer:setup` (optional) finds the CLIs you have, asks which one reviews and with which models, creates your team's review skill, and tests it for real.
 3. Work as usual. Every new session opens with a summary of where things stand; say goodbye and the handoff runs on its own.
 
+After updating the plugin (`claude plugin marketplace update specbaton`), run `/specbaton:setup` again: it keeps what's there and offers only what's new.
+
 ## Commands
 
 | Command | When | What it does |
 | --- | --- | --- |
-| `/specbaton:setup` | Once per project | Detects the structure, creates the memory layer and `.claude/specbaton.json` |
+| `/specbaton:setup` | Once per project, and again after an update | Detects the structure, creates the memory layer and `.claude/specbaton.json`. In a project already set up, offers only what's missing or new |
 | `/specbaton:resume-work [change]` | A hook asks for it at the start of every session; also by hand | Proposes the pending commit, reads `NOW.md`, the change's status and its ADRs, checks git since the last handoff, and summarizes |
 | `/specbaton:handoff [change]` | When you say goodbye (a hook asks for it), when the context gets heavy, or before switching changes | Writes the status, creates the missing ADRs as `proposed`, updates the indexes and tasks, and proposes the commit |
 | `/specbaton-reviewer:setup` | Once per project | Chooses the reviewer CLI and models, creates the review skill, runs three real read-only tests |
@@ -101,6 +103,8 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
   "status_path": "openspec/changes/{change}/status.md",
   "openspec": true,
   "graphs": {"enabled": true, "units": "auto", "exclude": [], "platform": "auto"},
+  "obsidian": true,
+  "cycle_rules": false,
   "farewell_patterns": [],
   "reviewer": {
     "cli": "agy",
@@ -116,9 +120,10 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
 
 ## Status
 
-Version 0.2.0, early.
+Version 0.2.1, early.
 
 - `bash tests/hooks.test.sh` checks the memory plugin's hooks and settings with simulated hook inputs.
+- `bash tests/setup.test.sh` checks how a second setup finds what's in place, what's missing and what's new.
 - `bash tests/graphs.test.sh` checks how units are discovered for the code graphs, and builds real graphs when graphify is installed.
 - `bash tests/reviewer.test.sh` checks the wrapper with fake CLIs for the four adapters: answers, resume flags, denied actions, writes inside repos and inside ignored folders, unknown models, usage limits and secret masking.
 - The read-only behavior of each real CLI was checked by hand in November 2026, against Cursor's CLI, Antigravity 1.5.1 and Claude Code 2.1.

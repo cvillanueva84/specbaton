@@ -1,3 +1,4 @@
+<!-- specbaton:rules -->
 ## Memory between sessions (specbaton)
 
 - The chat keeps nothing that must survive: state and decisions live in files under `{{MEM}}`.

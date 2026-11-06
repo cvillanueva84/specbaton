@@ -1,11 +1,11 @@
 ---
 name: setup
-description: Set up specbaton's memory layer in this project - detects the project's structure (several repos, a monorepo or a single repo), decides with the user where the memory lives, and creates NOW.md, the ADR folder, the rules and .claude/specbaton.json. Run it only when the user types /specbaton:setup or asks to set up specbaton.
-allowed-tools: Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh" *)
+description: Set up specbaton's memory layer in this project, or bring an existing setup up to date after a plugin update - detects the project's structure (several repos, a monorepo or a single repo), decides with the user where the memory lives, and creates NOW.md, the ADR folder, the rules and .claude/specbaton.json. Run it only when the user types /specbaton:setup or asks to set up specbaton.
+allowed-tools: Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" *) Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/check.py" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh" *)
 ---
 Set up specbaton's memory in this project. The idea: **the chat is RAM and the repo is disk**. Decisions and the state of the work live in versioned files, and every session starts by reading them, so a compaction or a new chat loses nothing.
 
-Reply in the user's language. Every file you create is in English unless the user asks for their own language (then translate the templates' text, keeping file names, frontmatter keys and the `[UNCERTAIN]` tag).
+Reply in the user's language. Every file you create is in English unless the user asks for their own language (then translate the templates' text, keeping file names, frontmatter keys, the `[UNCERTAIN]` tag and the `<!-- specbaton:… -->` markers, which tell a later setup what's already there).
 
 ## Rules for this setup
 
@@ -13,6 +13,22 @@ Reply in the user's language. Every file you create is in English unless the use
 - Never delete existing files. If a file you're about to create exists, don't overwrite it: show the diff and ask.
 - Never commit, push or touch a team repo's history without the user's approval. Never stage `.env*`, keys or anything that looks like a secret.
 - The templates are in `${CLAUDE_SKILL_DIR}/../../templates/`. Use them as they are, replacing `{{MEM}}` and `{{STATUS}}` with this project's values.
+
+## Phase 0. Already set up?
+
+```bash
+python3 "${CLAUDE_SKILL_DIR}/../../scripts/check.py" "$PWD"
+```
+
+- **Exit 1** (no `.claude/specbaton.json` here or above): a fresh setup. Go on with phase 1.
+- **Exit 2**: the settings file isn't valid JSON. Show the error and stop; don't rewrite the file.
+- **Exit 0**: specbaton is already set up in this project (if the root it found is a folder above this one, say which). Don't run the phases from the start. Show the user, in plain words, what's in place, then work only on what's left:
+  - Each `missing` line is part of the chosen setup that isn't there (a deleted file, an ignore never added, a unit without its graph). Propose restoring them, all together, at one **⏸ CONFIRM**.
+  - Each `ask` line is an optional feature the user was never asked about, usually because it's newer than the setup (the code graphs, new in 0.2.0). Ask about each one the way phase 2 does.
+  - `off` lines were turned down: mention them in one line and don't ask again, unless the user brings them up.
+  - Then do only the matching steps of the phases below: memory files and rules sections in phase 4, settings keys in phase 5 (merge them in, recording `false` for each feature turned down so it isn't asked again), ignores in phase 3, graphs in phase 6. Finish with phase 7, where `check.py` must show no `missing` line, and propose one commit.
+  - The layer, MEM and STATUS stay as they are. Moving the memory to another layer is a migration, not a setup: do it only when the user asks, file by file and with their approval.
+  - When there's nothing `missing` or to `ask`, say in one line that the setup is up to date, and stop.
 
 ## Phase 1. Scan (read-only)
 
@@ -123,12 +139,14 @@ Write `.claude/specbaton.json` at the project root (merge into it when it exists
   "status_path": "<STATUS, with {change} where the change's name goes>",
   "openspec": <true|false>,
   "graphs": {"enabled": <true|false>, "units": "auto", "exclude": [], "platform": "auto"},
+  "obsidian": <true|false>,
+  "cycle_rules": <true|false>,
   "graphify_cmd": "",
   "farewell_patterns": []
 }
 ```
 
-`farewell_patterns` adds goodbyes in other languages (regular expressions, lowercase, without accents) to the built-in English and Spanish ones. `graphs.platform` is `merge`, `full`, `none` or `auto` (merge for several repos, full otherwise). `graphify_cmd` is only for a project that already has its own command to refresh the graphs; leave it empty to use specbaton's.
+Write `graphs`, `obsidian` and `cycle_rules` even when the user turned them down (`false`): a later setup then knows they were asked. `farewell_patterns` adds goodbyes in other languages (regular expressions, lowercase, without accents) to the built-in English and Spanish ones. `graphs.platform` is `merge`, `full`, `none` or `auto` (merge for several repos, full otherwise). `graphify_cmd` is only for a project that already has its own command to refresh the graphs; leave it empty to use specbaton's.
 
 ## Phase 6. Code graphs (optional, ⏸ CONFIRM)
 
@@ -149,9 +167,10 @@ Only when the user wants them.
 
 ```bash
 python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" "$PWD"
+python3 "${CLAUDE_SKILL_DIR}/../../scripts/check.py" "$PWD"
 ```
 
-It must print the values you wrote, with `memory_dir_abs` pointing to MEM. Also check that Obsidian's folder is ignored: `git -C <MEM> check-ignore -q .obsidian/ && echo "obsidian ignored"` must print the message, and likewise `git check-ignore -q graphify-out/` from the project root. Then show `git -C <MEM> status`, check that no secret is staged (`git -C <MEM> diff --cached --name-only | grep -iE '\.env|secret|\.pem|\.key'` prints nothing), and propose the first commit of the memory layer.
+`config.py` must print the values you wrote, with `memory_dir_abs` pointing to MEM. `check.py` must show no `missing` line and no `ask` line: fix what it lists (the ignores of `.obsidian/` and `graphify-out/` among them) before going on. Then show `git -C <MEM> status`, check that no secret is staged (`git -C <MEM> diff --cached --name-only | grep -iE '\.env|secret|\.pem|\.key'` prints nothing), and propose the first commit of the memory layer.
 
 ## Phase 8. Tell the user how it works
 
@@ -161,4 +180,5 @@ It must print the values you wrote, with `memory_dir_abs` pointing to MEM. Also 
 - After a compaction, a hook re-anchors the session on the files.
 - One change per session: before switching topics, `/specbaton:handoff` and `/clear`.
 - With code graphs: the handoff refreshes the graphs of the units the session touched, and a new folder gets its graph the first time a session works in it. `graphs.sh --list` shows the units.
+- After updating the plugin, run `/specbaton:setup` again: it keeps what's there and offers only what's new or missing.
 - Optional next step: the `specbaton-reviewer` plugin adds a second agent that writes the plan and reviews the code, read-only (`/specbaton-reviewer:setup`).

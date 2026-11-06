@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.1 · 2026-11-06
+
+Running `/specbaton:setup` again brings a setup up to date instead of starting over.
+
+- `scripts/check.py` lists what a project's setup has (`ok`), what it's missing (`missing`: a deleted file, an ignore never added, a unit without its graph), the optional features never offered (`ask`, such as the code graphs for a 0.1 setup) and the ones turned down (`off`). It only reads.
+- `/specbaton:setup` runs it first. In a project that's already set up it shows what's in place and offers only what's missing or new, at one confirmation; it never asks the layer again. When there's nothing to do, it says so in one line.
+- The settings record the optional features turned down (`"obsidian": false`, `"cycle_rules": false`, `"graphs": {"enabled": false}`), so a later setup doesn't ask about them again.
+- The rules templates start with a `<!-- specbaton:… -->` marker that a later setup looks for. Rules written by 0.1 are recognized without it.
+- `tests/setup.test.sh` covers a 0.1 setup, an up-to-date one, a deleted file, features turned on but not in place, and layer B.
+
 ## 0.2.0 · 2026-11-06
 
 Code graphs, refreshed by the handoff.

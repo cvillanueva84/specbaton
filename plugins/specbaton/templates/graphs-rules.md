@@ -1,3 +1,4 @@
+<!-- specbaton:graphs-rules -->
 ## Code graphs (specbaton)
 
 - There's a graph per unit in `graphify-out/units/<unit>/graphify-out/`, and a platform graph in `graphify-out/graph.json`, graphify's default path. `graphify-out/INDEX.md` lists them with their date; each unit has a wiki at `wiki/index.md`.
