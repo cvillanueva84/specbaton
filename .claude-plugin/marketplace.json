@@ -1,0 +1,19 @@
+{
+  "name": "specbaton",
+  "description": "Spec-driven development with Claude Code: memory that survives sessions, and a read-only second agent that plans and reviews.",
+  "owner": {
+    "name": "cvillanueva84"
+  },
+  "plugins": [
+    {
+      "name": "specbaton",
+      "source": "./plugins/specbaton",
+      "description": "Session memory for spec-driven work: ADRs, one change per session, resume-work and handoff, triggered by hooks."
+    },
+    {
+      "name": "specbaton-reviewer",
+      "source": "./plugins/specbaton-reviewer",
+      "description": "A second agent (Cursor, Antigravity, Claude with another model, or any CLI) that writes the plan and reviews the code, read-only and verified."
+    }
+  ]
+}

@@ -1,0 +1,12 @@
+{
+  "name": "specbaton-reviewer",
+  "version": "0.1.0",
+  "description": "A second agent (Cursor, Antigravity, Claude with another model, or any CLI) that writes the plan and reviews the code, read-only and verified.",
+  "author": {
+    "name": "cvillanueva84"
+  },
+  "homepage": "https://github.com/cvillanueva84/specbaton",
+  "repository": "https://github.com/cvillanueva84/specbaton",
+  "license": "MIT",
+  "keywords": ["code-review", "second-opinion", "plan", "cursor", "antigravity", "spec-driven"]
+}
