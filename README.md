@@ -71,7 +71,9 @@ Where the memory layer lives depends on the project. `/specbaton:setup` detects 
 | **A** | Your own repo, or one whose team adopts the memory | The memory lives in the repo |
 | **B** | A team repo you don't want to change | The memory lives in a private repo beside it; the rules go in `CLAUDE.local.md`, kept out of git |
 
-**Code graphs** (optional, with [graphify](https://pypi.org/project/graphifyy/)): a graph per unit (a repo, a service or a package) under `graphify-out/units/`, plus a platform graph, so Claude asks about the code's structure instead of reading it file by file. Units are discovered on every run (repos in a multi-repo folder, or folders with a `package.json`, `pyproject.toml`, `go.mod`… in a monorepo), so a folder you add later gets its graph the first time a session works in it: `/specbaton:handoff` refreshes the graphs of the units a session touched.
+**Code graphs** (optional, with [graphify](https://pypi.org/project/graphifyy/)): a graph per unit (a repo, a service or a package) under `graphify-out/units/`, plus a platform graph, so Claude asks about the code's structure instead of reading it file by file. Units are discovered on every run (repos in a multi-repo folder, or folders with a `package.json`, `pyproject.toml`, `go.mod`… in a monorepo), so a folder you add later gets its graph the first time a session works in it: `/specbaton:handoff` refreshes the graphs of the units a session touched. The setup shows what it found and lets you leave units out (`exclude`) or add folders it missed (`include`). Besides each unit's graph there's a platform graph for questions that cross units: the units' graphs merged (`merge`, the default for several repos) or one graph of the whole root (`full`, the default for a monorepo, which keeps the real imports between units).
+
+**Obsidian** (optional): open the memory layer as a vault for a dashboard of ADRs and changes. The setup sets the folders Obsidian leaves out of its search and graph view: always `graphify-out/`, plus the code folders you choose.
 
 Rules for ADRs: the rejected alternatives are required (they're what a summary drops), an accepted ADR is never contradicted (a new one supersedes it), and an accepted ADR's body is never edited.
 
@@ -102,7 +104,7 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
   "rules_file": "CLAUDE.md",
   "status_path": "openspec/changes/{change}/status.md",
   "openspec": true,
-  "graphs": {"enabled": true, "units": "auto", "exclude": [], "platform": "auto"},
+  "graphs": {"enabled": true, "units": "auto", "exclude": [], "include": [], "platform": "auto"},
   "obsidian": true,
   "cycle_rules": false,
   "farewell_patterns": [],
@@ -120,7 +122,7 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
 
 ## Status
 
-Version 0.2.1, early.
+Version 0.3.0, early.
 
 - `bash tests/hooks.test.sh` checks the memory plugin's hooks and settings with simulated hook inputs.
 - `bash tests/setup.test.sh` checks how a second setup finds what's in place, what's missing and what's new.

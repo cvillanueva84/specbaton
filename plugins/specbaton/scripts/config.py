@@ -68,6 +68,7 @@ def main(argv):
     values["farewell_patterns"] = "\n".join(cfg.get("farewell_patterns", []))
     graphs = cfg.get("graphs") if isinstance(cfg.get("graphs"), dict) else {}
     values["graphs_enabled"] = bool(graphs.get("enabled", False))
+    values["graphs_exclude"] = "\n".join(str(e).strip("/") for e in graphs.get("exclude") or [])
     for k, v in list(values.items()):
         if isinstance(v, bool):
             values[k] = "true" if v else "false"
@@ -77,7 +78,7 @@ def main(argv):
             print(v)
         return 0
     for k in sorted(values):
-        if k != "farewell_patterns":
+        if k not in ("farewell_patterns", "graphs_exclude"):
             print(f"{k}={values[k]}")
     return 0
 

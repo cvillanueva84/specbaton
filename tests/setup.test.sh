@@ -95,6 +95,36 @@ out="$(python3 "$CHECK" "$P")"
 has "layer B: memory beside the repo" "$out" "ok${tab}memory folder${tab}$M" "ok${tab}status folder" "ok${tab}rules: import @../team-memory/NOW.md" \
   "ok${tab}ignore: .obsidian/${tab}$M" "ok${tab}ignore: CLAUDE.local.md${tab}$P" "missing${tab}ignore: graphify-out/${tab}$P" "summary${tab}1 missing, 0 to ask"
 
+# Obsidian's excluded folders.
+OB="$HERE/plugins/specbaton/scripts/obsidian.py"
+V="$T/vault"; mkdir -p "$V/.obsidian" "$V/.claude" "$V/decisions" "$V/api" "$V/web" "$V/node_modules" "$V/notes" "$V/apps/admin"
+git -C "$V" init -q; git -C "$V/api" init -q; echo '{}' > "$V/web/package.json"; echo '{}' > "$V/apps/admin/package.json"
+printf '{"promptDelete": false, "userIgnoreFilters": ["archive/"]}\n' > "$V/.obsidian/app.json"
+out="$(python3 "$OB" "$V")"
+has "obsidian: an existing vault and its filters" "$out" "vault${tab}$V${tab}exists" "filter${tab}archive/" "always${tab}graphify-out/${tab}code graphs, written by graphify"
+has "obsidian: suggests code and dependencies" "$out" "suggest${tab}api/${tab}its own git repo" "suggest${tab}node_modules/${tab}dependencies or build output" "folder${tab}notes/"
+hasnt "obsidian: never suggests the memory folders" "$out" "decisions"
+# Without settings yet (the setup asks before writing them), discovery is the plain one: here api/ is a repo, so the
+# other folders aren't units.
+python3 "$OB" "$V" --add api/ node_modules >/dev/null
+out="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["promptDelete"], d["userIgnoreFilters"])' "$V/.obsidian/app.json")"
+[ "$out" = "False ['archive/', 'graphify-out/', 'api/', 'node_modules/']" ] && { echo "ok   obsidian --add keeps the other settings and adds graphify-out/"; pass=$((pass + 1)); } || { echo "FAIL obsidian --add: $out"; fail=$((fail + 1)); }
+out="$(python3 "$OB" "$V" --add api)"; [ "$out" = "added${tab}nothing (already excluded)" ] && { echo "ok   obsidian --add twice adds nothing"; pass=$((pass + 1)); } || { echo "FAIL obsidian twice: $out"; fail=$((fail + 1)); }
+# A monorepo vault: its units (also one level down) are suggested.
+M2="$T/monovault"; mkdir -p "$M2/apps/web" "$M2/packages/ui" "$M2/notes"; echo '{}' > "$M2/apps/web/package.json"; echo '{}' > "$M2/packages/ui/package.json"
+out="$(python3 "$OB" "$M2")"
+has "obsidian: a monorepo's units are suggested" "$out" "vault${tab}$M2${tab}absent" "suggest${tab}apps/web/${tab}a code unit" "suggest${tab}packages/ui/${tab}a code unit" "folder${tab}notes/"
+python3 "$OB" "$M2" --add apps/web >/dev/null; [ -f "$M2/.obsidian/app.json" ] && { echo "ok   obsidian --add creates app.json in a new vault"; pass=$((pass + 1)); } || { echo "FAIL no app.json"; fail=$((fail + 1)); }
+# app.json in a shape it doesn't expect: left untouched.
+printf '{"userIgnoreFilters": "oops"}\n' > "$M2/.obsidian/app.json"; python3 "$OB" "$M2" --add x >/dev/null 2>&1; rc=$?
+[ $rc -eq 3 ] && grep -q oops "$M2/.obsidian/app.json" && { echo "ok   obsidian: an unexpected app.json is left alone"; pass=$((pass + 1)); } || { echo "FAIL unexpected app.json: rc $rc"; fail=$((fail + 1)); }
+# check.py: an open vault without graphify-out/ excluded is missing it.
+Q="$T/old"; mkdir -p "$Q/.obsidian"; printf '{}\n' > "$Q/.obsidian/app.json"
+out="$(python3 "$CHECK" "$Q")"
+has "check: graphify-out/ not excluded in Obsidian" "$out" "missing${tab}obsidian: graphify-out/ excluded${tab}not in Files and links > Excluded files (.obsidian/app.json)"
+python3 "$OB" "$Q" --add >/dev/null; out="$(python3 "$CHECK" "$Q")"
+has "check: graphify-out/ excluded in Obsidian" "$out" "ok${tab}obsidian: graphify-out/ excluded"
+
 # Invalid JSON: exit 2.
 echo '{nope' > "$P/.claude/specbaton.json"; python3 "$CHECK" "$P" >/dev/null 2>&1; [ $? -eq 2 ] && { echo "ok   invalid JSON: exit 2"; pass=$((pass + 1)); } || { echo "FAIL invalid JSON"; fail=$((fail + 1)); }
 

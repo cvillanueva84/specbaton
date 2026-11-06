@@ -57,6 +57,29 @@ expect "units set by hand" "$T/manual" "front${tab}client
 back${tab}server
 platform${tab}none"
 
+# include adds a folder discovery misses; --candidates says why each folder is or isn't a unit.
+project inc '{"version": 1, "graphs": {"enabled": true, "include": ["scripts"], "exclude": ["apps/old"]}}'
+mkdir -p "$T/inc/apps/web" "$T/inc/apps/old" "$T/inc/apps/assets" "$T/inc/scripts" "$T/inc/notes" "$T/inc/decisions"
+echo '{}' > "$T/inc/apps/web/package.json"; echo '{}' > "$T/inc/apps/old/package.json"
+expect "include adds a folder without a manifest" "$T/inc" "web${tab}apps/web
+scripts${tab}scripts
+platform${tab}full"
+got="$(python3 "$S/units.py" "$T/inc" --candidates)"
+want="memory${tab}decisions${tab}specbaton's memory files
+excluded${tab}apps/old${tab}in exclude
+no-code${tab}apps/assets${tab}no project manifest
+unit${tab}apps/web${tab}has a project manifest
+no-code${tab}notes${tab}no project manifest
+unit${tab}scripts${tab}in include"
+[ "$(sort <<<"$got")" = "$(sort <<<"$want")" ] && { echo "ok   --candidates explains every folder"; pass=$((pass + 1)); } || { echo "FAIL --candidates"; diff <(sort <<<"$want") <(sort <<<"$got") | sed 's/^/    /'; fail=$((fail + 1)); }
+
+# Layer W never gets "full": its root .gitignore hides the repos.
+project wlayer '{"version": 1, "layer": "W", "graphs": {"enabled": true, "platform": "full"}}'
+for r in api web; do mkdir -p "$T/wlayer/$r" && git -C "$T/wlayer/$r" init -q; done
+expect "layer W: full becomes merge" "$T/wlayer" "api${tab}api
+web${tab}web
+platform${tab}merge"
+
 # graphs.sh --list works from a subfolder.
 out="$(cd "$T/mono/apps/web" && bash "$S/graphs.sh" --list)"
 [[ "$out" == *"frontend"*"platform: full"* ]] && { echo "ok   graphs.sh --list from a subfolder"; pass=$((pass + 1)); } || { echo "FAIL graphs.sh --list"; echo "$out" | sed 's/^/    /'; fail=$((fail + 1)); }
@@ -71,6 +94,15 @@ if command -v graphify >/dev/null 2>&1; then
   if [[ "$out" == *"frontend (frontend)"*"ok"* ]] && [ -f graphify-out/units/frontend/graphify-out/graph.json ] && grep -q '| frontend |' graphify-out/INDEX.md; then
     echo "ok   graphify: a new folder gets its graph with --missing"; pass=$((pass + 1))
   else echo "FAIL graphify build"; echo "$out" | sed 's/^/    /'; fail=$((fail + 1)); fi
+  # A whole-root platform graph leaves the excluded folders out.
+  project full '{"version": 1, "graphs": {"enabled": true, "exclude": ["legacy"]}}'
+  cd "$T/full" && git init -q && mkdir -p apps/web legacy
+  echo '{}' > apps/web/package.json; printf 'export const w = () => 1;\n' > apps/web/w.js; printf 'export const old = () => 1;\n' > legacy/old.js
+  out="$(bash "$S/graphs.sh" 2>&1)"
+  files="$(python3 -c 'import json; print(sorted({n.get("source_file") for n in json.load(open("graphify-out/graph.json"))["nodes"]}))' 2>&1)"
+  if [[ "$files" == *"apps/web/w.js"* && "$files" != *"legacy"* ]] && [ -f graphify-out/GRAPH_REPORT.md ]; then
+    echo "ok   graphify: the whole-root graph leaves excluded folders out"; pass=$((pass + 1))
+  else echo "FAIL graphify full with exclude"; printf '%s\n%s\n' "$out" "$files" | sed 's/^/    /'; fail=$((fail + 1)); fi
 else
   echo "skip graphify build (graphify isn't installed)"
 fi

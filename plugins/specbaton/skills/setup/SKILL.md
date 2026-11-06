@@ -1,7 +1,7 @@
 ---
 name: setup
 description: Set up specbaton's memory layer in this project, or bring an existing setup up to date after a plugin update - detects the project's structure (several repos, a monorepo or a single repo), decides with the user where the memory lives, and creates NOW.md, the ADR folder, the rules and .claude/specbaton.json. Run it only when the user types /specbaton:setup or asks to set up specbaton.
-allowed-tools: Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" *) Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/check.py" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh" *)
+allowed-tools: Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" *) Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/check.py" *) Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/obsidian.py" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh" *)
 ---
 Set up specbaton's memory in this project. The idea: **the chat is RAM and the repo is disk**. Decisions and the state of the work live in versioned files, and every session starts by reading them, so a compaction or a new chat loses nothing.
 
@@ -26,7 +26,7 @@ python3 "${CLAUDE_SKILL_DIR}/../../scripts/check.py" "$PWD"
   - Each `missing` line is part of the chosen setup that isn't there (a deleted file, an ignore never added, a unit without its graph). Propose restoring them, all together, at one **⏸ CONFIRM**.
   - Each `ask` line is an optional feature the user was never asked about, usually because it's newer than the setup (the code graphs, new in 0.2.0). Ask about each one the way phase 2 does.
   - `off` lines were turned down: mention them in one line and don't ask again, unless the user brings them up.
-  - Then do only the matching steps of the phases below: memory files and rules sections in phase 4, settings keys in phase 5 (merge them in, recording `false` for each feature turned down so it isn't asked again), ignores in phase 3, graphs in phase 6. Finish with phase 7, where `check.py` must show no `missing` line, and propose one commit.
+  - Then do only the matching steps of the phases below: memory files, rules sections and Obsidian's excluded folders in phase 4, settings keys in phase 5 (merge them in, recording `false` for each feature turned down so it isn't asked again), ignores in phase 3, graphs in phase 6. Finish with phase 7, where `check.py` must show no `missing` line, and propose one commit.
   - The layer, MEM and STATUS stay as they are. Moving the memory to another layer is a migration, not a setup: do it only when the user asks, file by file and with their approval.
   - When there's nothing `missing` or to `ask`, say in one line that the setup is up to date, and stop.
 
@@ -38,7 +38,7 @@ Run from the project root and report what you find:
 pwd; ls -la
 git rev-parse --show-toplevel 2>/dev/null && git remote -v && git log --format='%an' | sort | uniq -c | sort -rn | head -5
 find . -maxdepth 3 -name .git -not -path './.git' 2>/dev/null | sed 's|/.git$||'
-ls -la CLAUDE.md CLAUDE.local.md AGENTS.md .claude .claude/specbaton.json openspec 2>/dev/null
+ls -la CLAUDE.md CLAUDE.local.md AGENTS.md .claude .claude/specbaton.json openspec .obsidian 2>/dev/null
 ls -ld .. && [ -w .. ] && echo "parent writable" || echo "parent NOT writable"
 ls -d ../*-memory ../*-memoria 2>/dev/null
 command -v openspec python3 git
@@ -66,7 +66,7 @@ If `--show-toplevel` is a folder above this one, the project sits inside another
 Recommend one with the scan's signals: an organization remote, several authors or a team `CLAUDE.md` suggest B. Also confirm:
 - **STATUS** (each change's state): `openspec/changes/{change}/status.md` with OpenSpec in layers W and A; `<MEM>/status/{change}.md` in layer B or without OpenSpec.
 - **OpenSpec:** whether the project uses it (`openspec/` exists, or the user wants it).
-- **Obsidian** (optional): a `dashboard.md` with Dataview views of the ADRs and changes.
+- **Obsidian** (optional): a `dashboard.md` with Dataview views of the ADRs and changes, and the folders Obsidian leaves out of its search and graph view. When the scan found `.obsidian/` (the folder is already a vault), say so and recommend yes.
 - **Code graphs** (optional): a graphify graph per unit (repo, service or package), refreshed by the handoff, so Claude can ask about the code's structure instead of reading it file by file. Needs graphify.
 - **Ticket cycle rules** (optional): test-first, local gate, pull request text, permissions and stacked branches (`templates/cycle-rules.md`). If the user wants them, ask what they need: the team's language for pull requests, the integration branch, the approvals a pull request needs, and the tracker.
 
@@ -126,6 +126,15 @@ With OpenSpec, if `openspec/config.yaml` has no `context:`, propose one describi
 
 With Obsidian, copy `templates/dashboard.md` to the vault's root (the project root in W and A, MEM in B). In layer B or without OpenSpec, change the "State of the active changes" query to `FROM "status"` without the `file.name = "status" AND` condition, and drop "Open tasks by change". The user installs Dataview by hand.
 
+With Obsidian, also set the folders it leaves out ("Files and links > Excluded files"), so code, dependencies and the graphs don't fill its search and graph view:
+1. `python3 "${CLAUDE_SKILL_DIR}/../../scripts/obsidian.py" <vault>`. `vault … exists` means the user already opens this folder in Obsidian: say so. `filter` lines are already excluded; keep them.
+2. `always` lines (`graphify-out/`) are excluded without asking: tell the user, in one line.
+3. Ask which folders to exclude. Start with the `suggest` lines selected (code units, repos, dependencies: their READMEs and docs would mix with the memory), and offer the `folder` lines as the other choices. With four or fewer folders, use a multi-select question; with more, show them as a list with the suggested ones marked and let the user say which to change. The memory folders never appear: they're what the vault is for.
+4. `python3 "${CLAUDE_SKILL_DIR}/../../scripts/obsidian.py" <vault> --add <folder>…` (it adds `graphify-out/` on its own and keeps everything else in `.obsidian/app.json`; with no `.obsidian/` yet, it creates the file and Obsidian picks it up when the vault is opened).
+5. When the vault was already open in Obsidian, ask the user to reload it (command palette, "Reload app without saving") or close and reopen it: Obsidian rewrites `app.json` with its own copy when a setting changes.
+
+In layer B the vault is MEM, which holds no code: skip the question unless MEM has other folders the user wants out.
+
 ## Phase 5. Settings file
 
 Write `.claude/specbaton.json` at the project root (merge into it when it exists, keeping other keys, such as the reviewer's):
@@ -138,7 +147,7 @@ Write `.claude/specbaton.json` at the project root (merge into it when it exists
   "rules_file": "<CLAUDE.md|CLAUDE.local.md>",
   "status_path": "<STATUS, with {change} where the change's name goes>",
   "openspec": <true|false>,
-  "graphs": {"enabled": <true|false>, "units": "auto", "exclude": [], "platform": "auto"},
+  "graphs": {"enabled": <true|false>, "units": "auto", "exclude": [], "include": [], "platform": "auto"},
   "obsidian": <true|false>,
   "cycle_rules": <true|false>,
   "graphify_cmd": "",
@@ -153,12 +162,20 @@ Write `graphs`, `obsidian` and `cycle_rules` even when the user turned them down
 Only when the user wants them.
 
 1. **graphify.** Check `graphify --help` lists `update`, `merge-graphs`, `cluster-only` and `export wiki`. If graphify is missing or older, ask the user to install it (don't install it yourself): `pipx install graphifyy` (or `pipx upgrade graphifyy`; the package has two y's and the command is `graphify`), and check again once they confirm.
-2. **Units.** A unit is a folder with a graph of its own: a repo, a service or a package. With the graphs turned on in the settings (`"graphs": {"enabled": true}`, phase 5), show the user what discovery finds: `bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh" --list`.
-   - Several repos in one folder: each repo is a unit, and the platform graph merges them.
-   - A monorepo: each first-level folder with a project manifest (`package.json`, `pyproject.toml`, `go.mod`…) is a unit, and so is each such folder one level down (`apps/web`); the platform graph covers the whole root, which keeps the real imports between units.
-   - A single app: no units; the root's graph is the only one.
+2. **Units: which folders get a graph.** A unit is a folder with a graph of its own: a repo, a service or a package. With the graphs turned on in the settings (`"graphs": {"enabled": true}`, phase 5), run `bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh" --candidates` and show the user, as a table, every folder it looked at and why it is or isn't a unit:
+   - `unit`: it gets a graph (its own git repo; a project manifest such as `package.json`, `pyproject.toml` or `go.mod`, at the first level or one level down, like `apps/web`; or it's in `include`).
+   - `no-code`: no repo or manifest, so no graph.
+   - `excluded`: in `exclude`. `memory`: specbaton's own files, never graphed.
 
-   Discovery runs every time, so a folder added later becomes a unit on its own. If the user wants other units, set `"units": {"<name>": "<path>", …}` (then only those count), or leave out folders with `"exclude": ["<path>", …]`. Infrastructure code (Terraform, Helm, YAML) comes out empty with graphify's AST extraction: leave such folders out.
+   Then ask two things:
+   - **Which units to leave out, and which other folders to add.** Leaving out goes in `"exclude": ["<path>", …]`; adding a folder discovery missed (code without a manifest, such as scripts) goes in `"include": ["<path>", …]`. Discovery keeps running, so a folder added later still becomes a unit on its own; say so. Only when the user wants a fixed list, where new folders never join, use `"units": {"<name>": "<path>", …}`. Infrastructure code (Terraform, Helm, YAML) comes out empty with graphify's AST extraction: suggest leaving such folders out.
+   - **The platform graph** (`"platform"`). Every unit always has its own graph; the platform graph is the extra one for questions that cross units, and it's either a mix of the units or a graph of everything:
+     - `merge`: the units' graphs merged into one, each node labeled with its unit. The default for several repos in one folder: they don't import each other, and shared names (types, endpoints) link them.
+     - `full`: one graph of the whole root, minus the excluded folders. The default for a monorepo: it keeps the real imports between units. Not available in layer W, whose root `.gitignore` hides the repos.
+     - `none`: only the units' graphs.
+     - With no units (a single app) the root's graph is the only one, and there's nothing to ask.
+
+     Recommend the default for the topology (`auto` in the settings resolves to it) and record the user's choice. Show `graphs.sh --list` once the settings are written, so the user sees the final units.
 3. **First build.** Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh"` and show `graphify-out/INDEX.md`. No unit should have 0 nodes, apart from folders without code.
 4. **Rules.** Append `templates/graphs-rules.md` to the rules file.
 5. **Cursor** (only when the project has `.cursor/` or the user uses Cursor): create `.cursor/rules/graphify-workspace.mdc` saying the platform graph is `graphify-out/graph.json`, each unit's is `graphify-out/units/<unit>/graphify-out/graph.json` with a wiki beside it, and `graphify update` must not be run by hand. Tell the user not to run `graphify cursor install`: it rewrites graphify's own rule. In layer B, add the file to the team repo's `.git/info/exclude`.

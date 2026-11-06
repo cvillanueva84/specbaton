@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.3.0 · 2026-11-06
+
+Choosing what gets a graph, and what Obsidian leaves out.
+
+- `/specbaton:setup` shows every folder discovery looked at and why it is or isn't a unit (`graphs.sh --candidates`), then asks which units to leave out (`exclude`), which other folders to add (`include`, new: code without a manifest, such as scripts) and which platform graph to build: `merge` (the units' graphs merged, for several repos), `full` (one graph of the whole root, for a monorepo) or `none`. Discovery keeps running, so a folder added later still becomes a unit on its own.
+- A `full` platform graph now leaves the excluded folders out. In layer W the platform graph is never `full`: the root's `.gitignore` hides the repos.
+- `scripts/obsidian.py` sets Obsidian's excluded folders ("Files and links > Excluded files", `.obsidian/app.json`). The setup detects a folder that's already a vault, always excludes `graphify-out/`, suggests the code folders, repos and dependencies, and asks which to exclude. It keeps every other setting in `app.json`, creates it when the vault has none, and leaves a file in an unexpected shape alone.
+- `check.py` reports an Obsidian vault that doesn't exclude `graphify-out/` yet, so a second setup fixes it.
+
 ## 0.2.1 · 2026-11-06
 
 Running `/specbaton:setup` again brings a setup up to date instead of starting over.

@@ -6,6 +6,7 @@
 #   graphs.sh web api         only those units (the platform graph is rebuilt too)
 #   graphs.sh --missing       only the units that don't have a graph yet, such as a folder added since the last run
 #   graphs.sh --list          the units and the platform mode, without building anything
+#   graphs.sh --candidates    every folder discovery looked at and why it is or isn't a unit (for the setup)
 #
 # The units come from units.py: the "graphs" section of .claude/specbaton.json, or discovered on every run (folders
 # with their own .git, or with a project manifest), so a folder added later becomes a unit on its own. Run it from
@@ -34,6 +35,12 @@ OUT="$ROOT/graphify-out"
 LIST="$(python3 "$SCRIPT_DIR/units.py" "$ROOT")" || { echo "Couldn't read the units from .claude/specbaton.json." >&2; exit 2; }
 platform="$(printf '%s\n' "$LIST" | awk -F'\t' '$1 == "platform" { print $2 }')"
 units="$(printf '%s\n' "$LIST" | awk -F'\t' '$1 != "platform"')"
+
+if [ "${1:-}" = "--candidates" ]; then
+  python3 "$SCRIPT_DIR/units.py" "$ROOT" --candidates | awk -F'\t' '{ printf "%-9s %-32s %s\n", $1, $2, $3 }'
+  echo "platform: $platform"
+  exit 0
+fi
 
 if [ "${1:-}" = "--list" ]; then
   if [ -z "$units" ]; then echo "No units: the project's graph is the root's."; else printf '%s\n' "$units" | awk -F'\t' '{ printf "%-24s %s\n", $1, $2 }'; fi
@@ -93,7 +100,15 @@ case "$platform" in
     fi ;;
   full)
     echo "· platform: graph of the whole root"
-    GRAPHIFY_OUT="$OUT" "$GRAPHIFY" update . >"$OUT/.last-platform.log" 2>&1 || echo "  failed (see $OUT/.last-platform.log)" ;;
+    excludes=()
+    while IFS= read -r e; do [ -n "$e" ] && excludes+=(--exclude "$e"); done < <(python3 "$SCRIPT_DIR/config.py" "$ROOT" --key graphs_exclude)
+    if [ "${#excludes[@]}" -eq 0 ]; then
+      GRAPHIFY_OUT="$OUT" "$GRAPHIFY" update . >"$OUT/.last-platform.log" 2>&1 || echo "  failed (see $OUT/.last-platform.log)"
+    else
+      # update takes no --exclude; extract does, with the same local AST extraction (--code-only calls no model).
+      { "$GRAPHIFY" extract . --code-only "${excludes[@]}" --out "$ROOT" &&
+        "$GRAPHIFY" cluster-only "$ROOT" --no-viz --no-label; } >"$OUT/.last-platform.log" 2>&1 || echo "  failed (see $OUT/.last-platform.log)"
+    fi ;;
   none) ;;
 esac
 

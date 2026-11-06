@@ -152,6 +152,23 @@ def main(argv):
         report("missing" if obsidian else "ask", "obsidian dashboard",
                "dashboard.md doesn't exist" if obsidian else "never asked")
 
+    # Obsidian's excluded folders: graphify-out/ always, once the vault exists (layer B's vault holds no graphs).
+    app = os.path.join(vault, ".obsidian", "app.json")
+    if layer != "B" and os.path.isdir(os.path.join(vault, ".obsidian")):
+        try:
+            with open(app, encoding="utf-8") as fh:
+                filters = json.load(fh).get("userIgnoreFilters", [])
+        except FileNotFoundError:
+            filters = []
+        except (OSError, ValueError, AttributeError):
+            filters = None
+        if not isinstance(filters, list):
+            report("note", "obsidian: excluded folders", "app.json isn't the expected shape; left alone")
+        else:
+            ok = any(isinstance(f, str) and f.strip("/") == "graphify-out" for f in filters)
+            report("ok" if ok else "missing", "obsidian: graphify-out/ excluded",
+                   "" if ok else "not in Files and links > Excluded files (.obsidian/app.json)")
+
     # Optional: the ticket cycle rules.
     cycle = cfg.get("cycle_rules")
     in_rules = has(rules, "cycle-rules", "docs/reference/gates.md")
