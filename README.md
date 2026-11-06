@@ -18,7 +18,7 @@ Long agent chats get compacted, and the first thing a summary drops is *why*: th
 
 ## Quick start
 
-Requires Claude Code, `git` and `python3`. The reviewer's learning step also uses `gh` and `jq`.
+Requires Claude Code, `git` and `python3`. The code graphs need graphify (`pipx install graphifyy`), and the reviewer's learning step uses `gh` and `jq`.
 
 ```bash
 claude plugin marketplace add cvillanueva84/specbaton
@@ -69,6 +69,8 @@ Where the memory layer lives depends on the project. `/specbaton:setup` detects 
 | **A** | Your own repo, or one whose team adopts the memory | The memory lives in the repo |
 | **B** | A team repo you don't want to change | The memory lives in a private repo beside it; the rules go in `CLAUDE.local.md`, kept out of git |
 
+**Code graphs** (optional, with [graphify](https://pypi.org/project/graphifyy/)): a graph per unit (a repo, a service or a package) under `graphify-out/units/`, plus a platform graph, so Claude asks about the code's structure instead of reading it file by file. Units are discovered on every run (repos in a multi-repo folder, or folders with a `package.json`, `pyproject.toml`, `go.mod`… in a monorepo), so a folder you add later gets its graph the first time a session works in it: `/specbaton:handoff` refreshes the graphs of the units a session touched.
+
 Rules for ADRs: the rejected alternatives are required (they're what a summary drops), an accepted ADR is never contradicted (a new one supersedes it), and an accepted ADR's body is never edited.
 
 ## The reviewer
@@ -98,7 +100,7 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
   "rules_file": "CLAUDE.md",
   "status_path": "openspec/changes/{change}/status.md",
   "openspec": true,
-  "graphify_cmd": "",
+  "graphs": {"enabled": true, "units": "auto", "exclude": [], "platform": "auto"},
   "farewell_patterns": [],
   "reviewer": {
     "cli": "agy",
@@ -114,9 +116,10 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
 
 ## Status
 
-Version 0.1.1, early.
+Version 0.2.0, early.
 
 - `bash tests/hooks.test.sh` checks the memory plugin's hooks and settings with simulated hook inputs.
+- `bash tests/graphs.test.sh` checks how units are discovered for the code graphs, and builds real graphs when graphify is installed.
 - `bash tests/reviewer.test.sh` checks the wrapper with fake CLIs for the four adapters: answers, resume flags, denied actions, writes inside repos and inside ignored folders, unknown models, usage limits and secret masking.
 - The read-only behavior of each real CLI was checked by hand in November 2026, against Cursor's CLI, Antigravity 1.5.1 and Claude Code 2.1.
 

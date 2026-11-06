@@ -1,7 +1,7 @@
 ---
 name: setup
 description: Set up specbaton's memory layer in this project - detects the project's structure (several repos, a monorepo or a single repo), decides with the user where the memory lives, and creates NOW.md, the ADR folder, the rules and .claude/specbaton.json. Run it only when the user types /specbaton:setup or asks to set up specbaton.
-allowed-tools: Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" *)
+allowed-tools: Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" *) Bash(bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh" *)
 ---
 Set up specbaton's memory in this project. The idea: **the chat is RAM and the repo is disk**. Decisions and the state of the work live in versioned files, and every session starts by reading them, so a compaction or a new chat loses nothing.
 
@@ -51,6 +51,7 @@ Recommend one with the scan's signals: an organization remote, several authors o
 - **STATUS** (each change's state): `openspec/changes/{change}/status.md` with OpenSpec in layers W and A; `<MEM>/status/{change}.md` in layer B or without OpenSpec.
 - **OpenSpec:** whether the project uses it (`openspec/` exists, or the user wants it).
 - **Obsidian** (optional): a `dashboard.md` with Dataview views of the ADRs and changes.
+- **Code graphs** (optional): a graphify graph per unit (repo, service or package), refreshed by the handoff, so Claude can ask about the code's structure instead of reading it file by file. Needs graphify.
 - **Ticket cycle rules** (optional): test-first, local gate, pull request text, permissions and stacked branches (`templates/cycle-rules.md`). If the user wants them, ask what they need: the team's language for pull requests, the integration branch, the approvals a pull request needs, and the tracker.
 
 ## Phase 3. Create the layer (⏸ CONFIRM)
@@ -80,14 +81,14 @@ Recommend one with the scan's signals: an organization remote, several authors o
 
 **Layer A.**
 1. Ask whether the memory files are committed with the code (the team sees them) or kept out through `.git/info/exclude`.
-2. Ignore Obsidian's folder, so opening the project as a vault never shows up in git: add `.obsidian/` to the repo's `.gitignore`, creating the file when it doesn't exist. When the team owns `.gitignore` and the memory files are kept out through `.git/info/exclude`, add `.obsidian/` there instead.
+2. Ignore what's generated locally: add `.obsidian/` (Obsidian's settings, written when the project is opened as a vault) and `graphify-out/` (the code graphs) to the repo's `.gitignore`, creating the file when it doesn't exist. When the team owns `.gitignore` and the memory files are kept out through `.git/info/exclude`, add them there instead.
 
 **Layer B.**
 1. Create the folder MEM and `git init` it.
 2. Create `<MEM>/.gitignore` with `.obsidian/`: MEM is the vault in this layer.
-3. Add to the team repo's `.git/info/exclude` (not shared): `CLAUDE.local.md` and `.claude/specbaton.json`.
+3. Add to the team repo's `.git/info/exclude` (not shared): `CLAUDE.local.md`, `.claude/specbaton.json` and `graphify-out/`.
 
-Do the `.obsidian/` step whether or not the user picked Obsidian now: it costs nothing and saves them from adding it by hand the day they open the folder in Obsidian. Layer W's allowlist already leaves `.obsidian/` out.
+Ignore `.obsidian/` and `graphify-out/` whether or not the user picked Obsidian or the graphs now: it costs nothing and saves them from adding them by hand later. Layer W's allowlist already leaves both out.
 
 ## Phase 4. Memory files (⏸ CONFIRM)
 
@@ -121,26 +122,43 @@ Write `.claude/specbaton.json` at the project root (merge into it when it exists
   "rules_file": "<CLAUDE.md|CLAUDE.local.md>",
   "status_path": "<STATUS, with {change} where the change's name goes>",
   "openspec": <true|false>,
+  "graphs": {"enabled": <true|false>, "units": "auto", "exclude": [], "platform": "auto"},
   "graphify_cmd": "",
   "farewell_patterns": []
 }
 ```
 
-`farewell_patterns` adds goodbyes in other languages (regular expressions, lowercase, without accents) to the built-in English and Spanish ones. `graphify_cmd` is the command that refreshes the code graphs, when the project has one.
+`farewell_patterns` adds goodbyes in other languages (regular expressions, lowercase, without accents) to the built-in English and Spanish ones. `graphs.platform` is `merge`, `full`, `none` or `auto` (merge for several repos, full otherwise). `graphify_cmd` is only for a project that already has its own command to refresh the graphs; leave it empty to use specbaton's.
 
-## Phase 6. Check and commit (⏸ CONFIRM)
+## Phase 6. Code graphs (optional, ⏸ CONFIRM)
+
+Only when the user wants them.
+
+1. **graphify.** Check `graphify --help` lists `update`, `merge-graphs`, `cluster-only` and `export wiki`. If graphify is missing or older, ask the user to install it (don't install it yourself): `pipx install graphifyy` (or `pipx upgrade graphifyy`; the package has two y's and the command is `graphify`), and check again once they confirm.
+2. **Units.** A unit is a folder with a graph of its own: a repo, a service or a package. With the graphs turned on in the settings (`"graphs": {"enabled": true}`, phase 5), show the user what discovery finds: `bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh" --list`.
+   - Several repos in one folder: each repo is a unit, and the platform graph merges them.
+   - A monorepo: each first-level folder with a project manifest (`package.json`, `pyproject.toml`, `go.mod`…) is a unit, and so is each such folder one level down (`apps/web`); the platform graph covers the whole root, which keeps the real imports between units.
+   - A single app: no units; the root's graph is the only one.
+
+   Discovery runs every time, so a folder added later becomes a unit on its own. If the user wants other units, set `"units": {"<name>": "<path>", …}` (then only those count), or leave out folders with `"exclude": ["<path>", …]`. Infrastructure code (Terraform, Helm, YAML) comes out empty with graphify's AST extraction: leave such folders out.
+3. **First build.** Run `bash "${CLAUDE_SKILL_DIR}/../../scripts/graphs.sh"` and show `graphify-out/INDEX.md`. No unit should have 0 nodes, apart from folders without code.
+4. **Rules.** Append `templates/graphs-rules.md` to the rules file.
+5. **Cursor** (only when the project has `.cursor/` or the user uses Cursor): create `.cursor/rules/graphify-workspace.mdc` saying the platform graph is `graphify-out/graph.json`, each unit's is `graphify-out/units/<unit>/graphify-out/graph.json` with a wiki beside it, and `graphify update` must not be run by hand. Tell the user not to run `graphify cursor install`: it rewrites graphify's own rule. In layer B, add the file to the team repo's `.git/info/exclude`.
+
+## Phase 7. Check and commit (⏸ CONFIRM)
 
 ```bash
 python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" "$PWD"
 ```
 
-It must print the values you wrote, with `memory_dir_abs` pointing to MEM. Also check that Obsidian's folder is ignored: `git -C <MEM> check-ignore -q .obsidian/ && echo "obsidian ignored"` must print the message. Then show `git -C <MEM> status`, check that no secret is staged (`git -C <MEM> diff --cached --name-only | grep -iE '\.env|secret|\.pem|\.key'` prints nothing), and propose the first commit of the memory layer.
+It must print the values you wrote, with `memory_dir_abs` pointing to MEM. Also check that Obsidian's folder is ignored: `git -C <MEM> check-ignore -q .obsidian/ && echo "obsidian ignored"` must print the message, and likewise `git check-ignore -q graphify-out/` from the project root. Then show `git -C <MEM> status`, check that no secret is staged (`git -C <MEM> diff --cached --name-only | grep -iE '\.env|secret|\.pem|\.key'` prints nothing), and propose the first commit of the memory layer.
 
-## Phase 7. Tell the user how it works
+## Phase 8. Tell the user how it works
 
 - A new session (or `/clear`) starts with a summary of where things stand: a hook asks for `/specbaton:resume-work` before the first answer.
 - Decisions become ADRs as they're made, always `proposed`; the user moves them to `accepted`.
 - `/specbaton:handoff` writes the state, the ADRs, the indexes and the tasks, and proposes the commit. It also runs on its own when the user says goodbye.
 - After a compaction, a hook re-anchors the session on the files.
 - One change per session: before switching topics, `/specbaton:handoff` and `/clear`.
+- With code graphs: the handoff refreshes the graphs of the units the session touched, and a new folder gets its graph the first time a session works in it. `graphs.sh --list` shows the units.
 - Optional next step: the `specbaton-reviewer` plugin adds a second agent that writes the plan and reviews the code, read-only (`/specbaton-reviewer:setup`).

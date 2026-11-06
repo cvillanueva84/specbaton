@@ -66,6 +66,8 @@ def main(argv):
         str(values["status_path"]) if os.path.isabs(str(values["status_path"])) else os.path.join(root, str(values["status_path"]))
     )
     values["farewell_patterns"] = "\n".join(cfg.get("farewell_patterns", []))
+    graphs = cfg.get("graphs") if isinstance(cfg.get("graphs"), dict) else {}
+    values["graphs_enabled"] = bool(graphs.get("enabled", False))
     for k, v in list(values.items()):
         if isinstance(v, bool):
             values[k] = "true" if v else "false"
