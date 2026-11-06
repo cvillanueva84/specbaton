@@ -78,11 +78,16 @@ Recommend one with the scan's signals: an organization remote, several authors o
    ```
 3. Never add a remote unless the user asks: the layer may hold the company's content.
 
-**Layer A.** Nothing to create beyond the files of phase 4. Ask whether they're committed with the code (the team sees them) or kept out through `.git/info/exclude`.
+**Layer A.**
+1. Ask whether the memory files are committed with the code (the team sees them) or kept out through `.git/info/exclude`.
+2. Ignore Obsidian's folder, so opening the project as a vault never shows up in git: add `.obsidian/` to the repo's `.gitignore`, creating the file when it doesn't exist. When the team owns `.gitignore` and the memory files are kept out through `.git/info/exclude`, add `.obsidian/` there instead.
 
 **Layer B.**
 1. Create the folder MEM and `git init` it.
-2. Add to the team repo's `.git/info/exclude` (not shared): `CLAUDE.local.md` and `.claude/specbaton.json`.
+2. Create `<MEM>/.gitignore` with `.obsidian/`: MEM is the vault in this layer.
+3. Add to the team repo's `.git/info/exclude` (not shared): `CLAUDE.local.md` and `.claude/specbaton.json`.
+
+Do the `.obsidian/` step whether or not the user picked Obsidian now: it costs nothing and saves them from adding it by hand the day they open the folder in Obsidian. Layer W's allowlist already leaves `.obsidian/` out.
 
 ## Phase 4. Memory files (⏸ CONFIRM)
 
@@ -129,7 +134,7 @@ Write `.claude/specbaton.json` at the project root (merge into it when it exists
 python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" "$PWD"
 ```
 
-It must print the values you wrote, with `memory_dir_abs` pointing to MEM. Then show `git -C <MEM> status`, check that no secret is staged (`git -C <MEM> diff --cached --name-only | grep -iE '\.env|secret|\.pem|\.key'` prints nothing), and propose the first commit of the memory layer.
+It must print the values you wrote, with `memory_dir_abs` pointing to MEM. Also check that Obsidian's folder is ignored: `git -C <MEM> check-ignore -q .obsidian/ && echo "obsidian ignored"` must print the message. Then show `git -C <MEM> status`, check that no secret is staged (`git -C <MEM> diff --cached --name-only | grep -iE '\.env|secret|\.pem|\.key'` prints nothing), and propose the first commit of the memory layer.
 
 ## Phase 7. Tell the user how it works
 

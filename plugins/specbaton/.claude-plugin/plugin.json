@@ -1,6 +1,6 @@
 {
   "name": "specbaton",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Session memory for spec-driven work: ADRs, one change per session, resume-work and handoff, triggered by hooks.",
   "author": {
     "name": "cvillanueva84"

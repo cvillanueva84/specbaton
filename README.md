@@ -114,7 +114,7 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
 
 ## Status
 
-Version 0.1.0, early.
+Version 0.1.1, early.
 
 - `bash tests/hooks.test.sh` checks the memory plugin's hooks and settings with simulated hook inputs.
 - `bash tests/reviewer.test.sh` checks the wrapper with fake CLIs for the four adapters: answers, resume flags, denied actions, writes inside repos and inside ignored folders, unknown models, usage limits and secret masking.

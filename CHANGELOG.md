@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.1 · 2026-11-06
+
+- `/specbaton:setup` makes the repo that holds the vault ignore `.obsidian/`: in the project's `.gitignore` in layer A (or `.git/info/exclude` when the team owns `.gitignore`), and in the memory repo's `.gitignore` in layer B. Layer W's allowlist already left it out. Before, a user who opened the folder in Obsidian had to add it by hand.
+
 ## 0.1.0 · 2026-11-06
 
 First release, packaging the author's spec-driven workflow as two Claude Code plugins.
