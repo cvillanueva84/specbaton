@@ -131,9 +131,10 @@ With Obsidian, also set the folders it leaves out ("Files and links > Excluded f
 2. `always` lines (`graphify-out/`) are excluded without asking: tell the user, in one line.
 3. Ask which folders to exclude. Start with the `suggest` lines selected (code units, repos, dependencies: their READMEs and docs would mix with the memory), and offer the `folder` lines as the other choices. With four or fewer folders, use a multi-select question; with more, show them as a list with the suggested ones marked and let the user say which to change. The memory folders never appear: they're what the vault is for.
 4. `python3 "${CLAUDE_SKILL_DIR}/../../scripts/obsidian.py" <vault> --add <folder>…` (it adds `graphify-out/` on its own and keeps everything else in `.obsidian/app.json`; with no `.obsidian/` yet, it creates the file and Obsidian picks it up when the vault is opened).
-5. When the vault was already open in Obsidian, ask the user to reload it (command palette, "Reload app without saving") or close and reopen it: Obsidian rewrites `app.json` with its own copy when a setting changes.
+5. **Graph colors.** Obsidian's graph view can color notes by path. Run `python3 "${CLAUDE_SKILL_DIR}/../../scripts/obsidian.py" <vault> --colors` and show the groups it proposes as a table, each color as a small swatch or its hex code: the memory files that exist (`NOW.md`, ADRs, changes in progress and archived, specs, status, reference, pull requests) and each other folder that isn't excluded. `kept` groups are the vault's own and stay as they are. Ask whether to add the `new` ones; if the user wants other colors or fewer groups, they change them in Obsidian afterwards ("Graph view > Groups"). On yes: `obsidian.py <vault> --colors --apply`, which adds them after the vault's own groups and never changes those. Record the answer as `"obsidian_colors"` in the settings.
+6. When the vault was already open in Obsidian, ask the user to reload it (command palette, "Reload app without saving") or close and reopen it: Obsidian rewrites `app.json` and `graph.json` with its own copy when a setting changes.
 
-In layer B the vault is MEM, which holds no code: skip the question unless MEM has other folders the user wants out.
+In layer B the vault is MEM, which holds no code: skip steps 3 and 4 unless MEM has other folders the user wants out. The graph colors (step 5) apply in every layer.
 
 ## Phase 5. Settings file
 
@@ -149,13 +150,14 @@ Write `.claude/specbaton.json` at the project root (merge into it when it exists
   "openspec": <true|false>,
   "graphs": {"enabled": <true|false>, "units": "auto", "exclude": [], "include": [], "platform": "auto"},
   "obsidian": <true|false>,
+  "obsidian_colors": <true|false>,
   "cycle_rules": <true|false>,
   "graphify_cmd": "",
   "farewell_patterns": []
 }
 ```
 
-Write `graphs`, `obsidian` and `cycle_rules` even when the user turned them down (`false`): a later setup then knows they were asked. `farewell_patterns` adds goodbyes in other languages (regular expressions, lowercase, without accents) to the built-in English and Spanish ones. `graphs.platform` is `merge`, `full`, `none` or `auto` (merge for several repos, full otherwise). `graphify_cmd` is only for a project that already has its own command to refresh the graphs; leave it empty to use specbaton's.
+Write `graphs`, `obsidian`, `obsidian_colors` and `cycle_rules` even when the user turned them down (`false`): a later setup then knows they were asked. `farewell_patterns` adds goodbyes in other languages (regular expressions, lowercase, without accents) to the built-in English and Spanish ones. `graphs.platform` is `merge`, `full`, `none` or `auto` (merge for several repos, full otherwise). `graphify_cmd` is only for a project that already has its own command to refresh the graphs; leave it empty to use specbaton's.
 
 ## Phase 6. Code graphs (optional, ⏸ CONFIRM)
 

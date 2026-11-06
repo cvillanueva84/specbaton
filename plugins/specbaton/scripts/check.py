@@ -169,6 +169,31 @@ def main(argv):
             report("ok" if ok else "missing", "obsidian: graphify-out/ excluded",
                    "" if ok else "not in Files and links > Excluded files (.obsidian/app.json)")
 
+    # Optional: the graph view's colors by path, once the vault exists.
+    if os.path.isdir(os.path.join(vault, ".obsidian")) and obsidian is not False:
+        from obsidian import MEMORY_COLORS  # noqa: E402
+
+        try:
+            with open(os.path.join(vault, ".obsidian", "graph.json"), encoding="utf-8") as fh:
+                have = {g.get("query") for g in json.load(fh).get("colorGroups", []) if isinstance(g, dict)}
+        except FileNotFoundError:
+            have = set()
+        except (OSError, ValueError, AttributeError):
+            have = None
+        wanted = [q for q, _, _, rel in MEMORY_COLORS if os.path.exists(os.path.join(vault, rel))]
+        lacking = [q for q in wanted if have is not None and q not in have]
+        choice = cfg.get("obsidian_colors")
+        if have is None:
+            report("note", "obsidian: graph colors", "graph.json isn't the expected shape; left alone")
+        elif choice is False:
+            report("off", "obsidian: graph colors")
+        elif not lacking:
+            report("ok", "obsidian: graph colors")
+        elif choice:
+            report("missing", "obsidian: graph colors", ", ".join(lacking))
+        else:
+            report("ask", "obsidian: graph colors", "never asked")
+
     # Optional: the ticket cycle rules.
     cycle = cfg.get("cycle_rules")
     in_rules = has(rules, "cycle-rules", "docs/reference/gates.md")

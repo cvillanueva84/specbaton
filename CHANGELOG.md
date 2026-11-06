@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.4.0 · 2026-11-06
+
+Obsidian's graph view, colored by path.
+
+- `obsidian.py --colors` proposes a color group per path (`.obsidian/graph.json`): `NOW.md`, the dashboard, ADRs, archived changes, changes in progress, specs, status, reference, pull request texts and templates, when they exist, plus each other first-level folder that isn't excluded. More specific paths come first (archived changes before changes), since Obsidian colors a note with the first group it matches.
+- `/specbaton:setup` shows the proposed groups and adds them on yes (`--colors --apply`), after the vault's own groups, which it never changes. The answer is recorded as `"obsidian_colors"`.
+- `check.py` reports the colors as to ask in a vault never asked about them, and as missing when a memory folder created later (say `pull-request/`) has no group yet.
+
 ## 0.3.0 · 2026-11-06
 
 Choosing what gets a graph, and what Obsidian leaves out.

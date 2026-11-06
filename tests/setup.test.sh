@@ -125,6 +125,36 @@ has "check: graphify-out/ not excluded in Obsidian" "$out" "missing${tab}obsidia
 python3 "$OB" "$Q" --add >/dev/null; out="$(python3 "$CHECK" "$Q")"
 has "check: graphify-out/ excluded in Obsidian" "$out" "ok${tab}obsidian: graphify-out/ excluded"
 
+# Graph colors by path: proposed for the memory files that exist and the folders not excluded; the vault's own groups
+# are kept as they are.
+C="$T/colors"; mkdir -p "$C/.obsidian" "$C/decisions" "$C/openspec/changes/archive" "$C/openspec/specs" "$C/notes" "$C/api" "$C/node_modules"
+echo x > "$C/NOW.md"
+printf '{"userIgnoreFilters": ["api/"]}\n' > "$C/.obsidian/app.json"
+printf '{"showTags": true, "colorGroups": [{"query": "path:decisions", "color": {"a": 1, "rgb": 255}}]}\n' > "$C/.obsidian/graph.json"
+out="$(python3 "$OB" "$C" --colors)"
+has "colors: memory files, other folders, the vault's own kept" "$out" "color${tab}file:NOW.md${tab}#e8b931${tab}NOW.md, the starting point${tab}new" \
+  "color${tab}path:decisions${tab}#4c8bf5${tab}ADRs${tab}kept" "color${tab}path:openspec/changes/archive${tab}#8a8f98${tab}archived changes${tab}new" \
+  "color${tab}path:openspec/specs${tab}#14a3a3${tab}specs${tab}new" "color${tab}path:notes${tab}#d08770${tab}the notes/ folder${tab}new"
+hasnt "colors: nothing for excluded folders or dependencies" "$out" "path:(api|node_modules|status)"
+cmp -s <(printf '{"showTags": true, "colorGroups": [{"query": "path:decisions", "color": {"a": 1, "rgb": 255}}]}\n') "$C/.obsidian/graph.json" && { echo "ok   colors: without --apply nothing is written"; pass=$((pass + 1)); } || { echo "FAIL colors wrote"; fail=$((fail + 1)); }
+python3 "$OB" "$C" --colors --apply >/dev/null
+out="$(python3 -c 'import json,sys; d=json.load(open(sys.argv[1])); print(d["showTags"], [(g["query"], g["color"]["rgb"]) for g in d["colorGroups"]][:3])' "$C/.obsidian/graph.json")"
+[ "$out" = "True [('path:decisions', 255), ('file:NOW.md', 15251761), ('path:openspec/changes/archive', 9080728)]" ] && { echo "ok   colors --apply: after the vault's own, archive before changes"; pass=$((pass + 1)); } || { echo "FAIL colors --apply: $out"; fail=$((fail + 1)); }
+out="$(python3 "$OB" "$C" --colors --apply | tail -1)"; [ "$out" = "added${tab}0 color group(s)" ] && { echo "ok   colors --apply twice adds nothing"; pass=$((pass + 1)); } || { echo "FAIL colors twice: $out"; fail=$((fail + 1)); }
+# check.py: in a vault the setup never asked about colors, they're to ask; once applied, ok; a memory folder created
+# later is missing its group when the user said yes.
+python3 - "$Q/.claude/specbaton.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p)); c["obsidian"] = True; json.dump(c, open(p, "w"))
+PY2
+out="$(python3 "$CHECK" "$Q")"; has "check: graph colors to ask" "$out" "ask${tab}obsidian: graph colors${tab}never asked"
+python3 - "$Q/.claude/specbaton.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p)); c["obsidian_colors"] = True; json.dump(c, open(p, "w"))
+PY2
+python3 "$OB" "$Q" --colors --apply >/dev/null; out="$(python3 "$CHECK" "$Q")"; has "check: graph colors in place" "$out" "ok${tab}obsidian: graph colors"
+mkdir -p "$Q/pull-request"; out="$(python3 "$CHECK" "$Q")"; has "check: a new memory folder lacks its color" "$out" "missing${tab}obsidian: graph colors${tab}path:pull-request"
+
 # Invalid JSON: exit 2.
 echo '{nope' > "$P/.claude/specbaton.json"; python3 "$CHECK" "$P" >/dev/null 2>&1; [ $? -eq 2 ] && { echo "ok   invalid JSON: exit 2"; pass=$((pass + 1)); } || { echo "FAIL invalid JSON"; fail=$((fail + 1)); }
 
