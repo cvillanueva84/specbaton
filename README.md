@@ -1,3 +1,8 @@
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+  <img alt="SpecBaton" src="assets/logo-light.svg" width="480">
+</picture>
+
 # SpecBaton
 
 Spec-driven development with Claude Code, passed like a baton: from one session to the next, and from the agent that implements to an agent that reviews.
