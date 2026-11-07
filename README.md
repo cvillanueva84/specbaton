@@ -1,7 +1,9 @@
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
-  <img alt="SpecBaton" src="assets/logo-light.svg" width="480">
-</picture>
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="assets/logo-dark.svg">
+    <img alt="SpecBaton" src="assets/logo-light.svg" width="480">
+  </picture>
+</p>
 
 # SpecBaton
 
