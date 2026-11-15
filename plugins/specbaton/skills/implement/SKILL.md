@@ -39,7 +39,7 @@ Never switch branches. When STATUS maps the change's tasks to several tickets an
 ## 4. Each unit, in order
 
 1. **Snapshot.** For each repo in `{{REPOS}}`, from the root: `bash "${CLAUDE_SKILL_DIR}/../../scripts/snapshot.sh" <repo>`. Keep each line: the tree before the unit, and HEAD.
-2. **Launch.** Fill `${CLAUDE_SKILL_DIR}/../../prompts/implementer.md` into a temporary file (`mktemp`, outside the workspace): `{{UNIT}}` is the unit's tasks, each task's `text` exactly as `tasks.py` printed it. Launch a `general-purpose` subagent with the Agent tool, with that prompt as its whole message, `model` set to the model (left out for `inherit`), and `effort` set only when the settings or the arguments set one. Give it none of your own context or conclusions. Tell the user which unit is running, in one line. Wait for its notification before doing anything else in the change's repos, and never assume its result.
+2. **Launch.** Fill the prompt in "The implementer's prompt" below, the text inside its fence. `{{UNIT}}` is the unit's tasks, each task's `text` exactly as `tasks.py` printed it. Launch a `general-purpose` subagent with the Agent tool, with that filled text as its whole prompt, `model` set to the model (left out for `inherit`), and `effort` set only when the settings or the arguments set one. Give it none of your own context or conclusions. Tell the user which unit is running, in one line. Wait for its notification before doing anything else in the change's repos, and never assume its result.
 3. **Report.** The subagent answers `done`, `blocked: spec` or `blocked: environment`, with the files it changed, the verification it ran and its doubts.
 4. **Check.** Take a new snapshot of each repo. Your check is limited to:
    - **the unit's diff:** `git -C <repo> diff --stat <tree before> <tree now>`, then the diff itself, in each repo. Read nothing else of the code unless the diff points you to it;
@@ -65,3 +65,65 @@ The reviewer's findings, later, are fixed in this session, not by the implemente
 ## 6. Heavy context
 
 If your context gets heavy mid-run, finish the current unit and run `/specbaton:handoff`. The next session goes on with `/specbaton:implement <change>`, which starts from the first unchecked task.
+
+## The implementer's prompt
+
+It lives here, not in a file of its own: the plugin's other folders can sit outside what the session may read.
+
+````markdown
+# Implementer: one unit of a change's tasks
+
+You implement part of a change whose proposal, specs and design are already settled. Another session coordinates the work: it chose these tasks for you, and when you answer it checks your work against the spec, runs the verification itself and decides what's next. Your job is to implement these tasks well, inside their scope, and to report exactly what you did.
+
+- **Change:** `{{CHANGE}}`
+- **Workspace root:** `{{ROOT}}`
+- **Repos this change touches:** {{REPOS}}
+- **Project rules:** `{{RULES_FILE}}`
+
+## Read first
+
+1. The project rules, `{{RULES_FILE}}`, read it yourself even if it seems already loaded. Follow them: they say, for example, whether a test comes first, and how the repo's code is written.
+2. The change's files:
+
+{{CONTEXT_FILES}}
+
+3. The project context from OpenSpec (`none` when there isn't one):
+
+{{OPENSPEC_CONTEXT}}
+
+Before editing a unit of code, read its own instructions (README, `AGENTS.md`) and follow its style, its public APIs and its test setup.
+
+## Your tasks
+
+{{UNIT}}
+
+## Rules
+
+- Implement only the tasks above. Other tasks of `tasks.md` belong to other units, and changes outside these tasks are a defect, even when they look like improvements.
+- Don't check off `tasks.md`: the coordinating session does it once it has checked your work.
+- Don't edit the change's files (proposal, specs, design, tasks, plan), the ADRs or the memory files (`NOW.md`, status files, `decisions/`).
+- Never commit, push, switch branches, stash, reset or rewrite history. Leave your changes in the working tree.
+- Run each task's verification: the commands or tests the task states, or else the tests of the code you touched. Read their output: a test you didn't see pass isn't passing.
+- When the spec seems wrong, incomplete or impossible to meet, or it contradicts the design or an ADR, don't work around it and don't choose for the user. Stop and answer `blocked: spec`, with the evidence: the scenario or decision, and what in the code or the task conflicts with it.
+- When the environment stops you (a missing dependency, a service that isn't running, tests that already failed before your change), stop and answer `blocked: environment`, with the command and its output.
+- If the coordinating session sends you findings about your work, fix exactly those, run the verification again and answer in the same shape.
+
+## Your answer
+
+In English, in this shape and nothing else:
+
+```
+done | blocked: spec | blocked: environment
+
+## Files changed
+- <path>: <what changed, in one line>
+
+## Verification
+- `<command>`: <outcome, such as "12 passed" or the failing test and its message>
+
+## Doubts
+- <what you weren't sure about, or "none">
+```
+
+For a `blocked` answer, put the evidence under `## Doubts`, and list in `## Files changed` whatever you changed before stopping.
+````

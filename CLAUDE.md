@@ -7,7 +7,7 @@ A Claude Code plugin marketplace with two plugins that install separately. `READ
 | Path | What |
 | --- | --- |
 | `.claude-plugin/marketplace.json` | Marketplace listing (no versions here) |
-| `plugins/specbaton/` | Memory plugin: `skills/` (setup, resume-work, handoff, implement), `hooks/`, `prompts/`, `scripts/`, `templates/` |
+| `plugins/specbaton/` | Memory plugin: `skills/` (setup, resume-work, handoff, implement), `hooks/`, `scripts/`, `templates/` |
 | `plugins/specbaton-reviewer/` | Reviewer plugin: `skills/` (setup, plan, code), `prompts/`, `scripts/`, `templates/review-skill/` |
 | `tests/*.test.sh` | Plain bash tests, one file per area |
 
@@ -45,6 +45,7 @@ A Claude Code plugin marketplace with two plugins that install separately. `READ
 - A skill's frontmatter `description` says when it runs: the explicit command, or the trigger it reacts to.
 - Every script a skill runs is in its `allowed-tools`, as `Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/<script>" *)`.
 - Every `{{PLACEHOLDER}}` in `prompts/` and `templates/` is replaced by the skill that copies the file. Add a new one in both places.
+- A skill reads nothing from its plugin's other folders with the Read tool: an installed plugin sits under `~/.claude/plugins/`, outside what a session may read, and a blocked read stops the skill. Scripts run through `allowed-tools`, and a subagent's prompt lives in the skill's own `SKILL.md`, as in `/specbaton:implement`. The reviewer's `prompts/` predate this rule.
 
 ## Scripts and hooks
 

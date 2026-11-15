@@ -102,13 +102,12 @@ done
 mkdir -p "$T/plain"; bash "$S/snapshot.sh" "$T/plain" >/dev/null 2>"$T/err"; rc=$?
 [ "$rc" -eq 2 ] && grep -q "specbaton: " "$T/err" && ok "snapshot: not a repo exits 2" || no "snapshot: not a repo exits $rc" "$(cat "$T/err")"
 
-# The skill and the implementer's prompt.
-M="$HERE/plugins/specbaton"
-PROMPT="$M/prompts/implementer.md"; SKILL="$M/skills/implement/SKILL.md"
-missing=""
-for ph in $(grep -o '{{[A-Z_]*}}' "$PROMPT" 2>/dev/null | sort -u); do grep -qF -- "$ph" "$SKILL" 2>/dev/null || missing="$missing $ph"; done
-[ -f "$PROMPT" ] && [ -f "$SKILL" ] && [ -z "$missing" ] && ok "implement: every prompt placeholder is filled by its skill" || no "implement: placeholders no skill fills:${missing:- (a file is missing)}"
-got="$(grep -o '{{[A-Z_]*}}' "$PROMPT" 2>/dev/null | sort -u | tr '\n' ' ')"
+# The skill carries the implementer's prompt itself: a plugin's other folders can sit outside what the session may
+# read (a plugin installed under ~/.claude/plugins), and a blocked read stops the run before any unit.
+M="$HERE/plugins/specbaton"; SKILL="$M/skills/implement/SKILL.md"
+if [ -f "$SKILL" ] && grep -q "^## The implementer's prompt" "$SKILL" && ! grep -q 'prompts/implementer' "$SKILL" && [ ! -e "$M/prompts" ]
+then ok "implement: the prompt lives in the skill"; else no "implement: the skill reads its prompt from outside its own file"; fi
+got="$(sed -n "/^## The implementer's prompt/,\$p" "$SKILL" | grep -o '{{[A-Z_]*}}' | sort -u | tr '\n' ' ')"
 [ "$got" = "{{CHANGE}} {{CONTEXT_FILES}} {{OPENSPEC_CONTEXT}} {{REPOS}} {{ROOT}} {{RULES_FILE}} {{UNIT}} " ] && ok "implement: the prompt's placeholders are the design's" || no "implement: the prompt's placeholders" "$got"
 bad=""
 for skill in "$HERE"/plugins/*/skills/*/SKILL.md; do
