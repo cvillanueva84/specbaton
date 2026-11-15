@@ -207,6 +207,18 @@ def main(argv):
         report("missing" if cycle else "ask", "ticket cycle rules",
                "templates/cycle-rules.md isn't in the rules file" if cycle else "never asked")
 
+    # Optional: delegated implementation (new in 0.5.0), only with OpenSpec, since its units come from tasks.md.
+    if openspec:
+        impl = cfg.get("implement")
+        if not isinstance(impl, dict):
+            report("ask", "delegated implementation", "never offered (new in 0.5.0)")
+        elif not impl.get("enabled"):
+            report("off", "delegated implementation")
+        elif has(rules, "implement-rules"):
+            report("ok", "delegated implementation")
+        else:
+            report("missing", "rules: delegated implementation section", "templates/implement-rules.md isn't in the rules file")
+
     for state, item, detail in lines:
         print(f"{state}\t{item}\t{detail}".rstrip("\t"))
     missing = sum(1 for s, _, _ in lines if s == "missing")

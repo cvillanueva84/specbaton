@@ -42,8 +42,9 @@ mkdir -p "$T/bare"; python3 "$CHECK" "$T/bare" >/dev/null; [ $? -eq 1 ] && { ech
 P="$(layer_a old)"
 out="$(python3 "$CHECK" "$P")"
 has "0.1 setup: memory and rules in place" "$out" "ok${tab}memory: NOW.md" "ok${tab}rules: import @NOW.md" "ok${tab}rules: memory section" "ok${tab}ignore: .obsidian/${tab}$P"
-has "0.1 setup: the new features are to ask" "$out" "ask${tab}code graphs${tab}never offered (new in 0.2.0)" "ask${tab}obsidian dashboard${tab}never asked" "ask${tab}ticket cycle rules${tab}never asked"
-has "0.1 setup: graphify-out/ isn't ignored yet" "$out" "missing${tab}ignore: graphify-out/${tab}$P" "summary${tab}1 missing, 3 to ask"
+has "0.1 setup: the new features are to ask" "$out" "ask${tab}code graphs${tab}never offered (new in 0.2.0)" "ask${tab}obsidian dashboard${tab}never asked" "ask${tab}ticket cycle rules${tab}never asked" \
+  "ask${tab}delegated implementation${tab}never offered (new in 0.5.0)"
+has "0.1 setup: graphify-out/ isn't ignored yet" "$out" "missing${tab}ignore: graphify-out/${tab}$P" "summary${tab}1 missing, 4 to ask"
 out="$(cd "$P/docs/reference" && python3 "$CHECK")"; [[ "$out" == *"summary"* ]] && { echo "ok   finds the root from a subfolder"; pass=$((pass + 1)); } || { echo "FAIL from a subfolder"; fail=$((fail + 1)); }
 
 # The same project, brought up to date with the features turned down: nothing missing, nothing to ask.
@@ -51,11 +52,12 @@ printf 'graphify-out/\n' >> "$P/.gitignore"
 python3 - "$P/.claude/specbaton.json" <<'PY'
 import json, sys
 p = sys.argv[1]; c = json.load(open(p))
-c.update({"graphs": {"enabled": False}, "obsidian": False, "cycle_rules": False})
+c.update({"graphs": {"enabled": False}, "obsidian": False, "cycle_rules": False, "implement": {"enabled": False}})
 json.dump(c, open(p, "w"))
 PY
 out="$(python3 "$CHECK" "$P")"
-has "up to date, features turned down" "$out" "off${tab}code graphs" "off${tab}obsidian dashboard" "off${tab}ticket cycle rules" "summary${tab}0 missing, 0 to ask"
+has "up to date, features turned down" "$out" "off${tab}code graphs" "off${tab}obsidian dashboard" "off${tab}ticket cycle rules" \
+  "off${tab}delegated implementation" "summary${tab}0 missing, 0 to ask"
 
 # A deleted file and a dropped import are missing.
 rm "$P/NOW.md"; sed -i.bak '/^@decisions/d' "$P/CLAUDE.md"
@@ -94,6 +96,18 @@ printf '{"version": 1, "layer": "B", "memory_dir": "../team-memory", "rules_file
 out="$(python3 "$CHECK" "$P")"
 has "layer B: memory beside the repo" "$out" "ok${tab}memory folder${tab}$M" "ok${tab}status folder" "ok${tab}rules: import @../team-memory/NOW.md" \
   "ok${tab}ignore: .obsidian/${tab}$M" "ok${tab}ignore: CLAUDE.local.md${tab}$P" "missing${tab}ignore: graphify-out/${tab}$P" "summary${tab}1 missing, 0 to ask"
+hasnt "layer B: no implement line without OpenSpec" "$out" "delegated implementation"
+
+# Delegated implementation turned on: the rules section is missing until templates/implement-rules.md is in.
+P="$(layer_a impl)"
+python3 - "$P/.claude/specbaton.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p)); c["implement"] = {"enabled": True}; json.dump(c, open(p, "w"))
+PY2
+out="$(python3 "$CHECK" "$P")"
+has "implement: on without the rules section" "$out" "missing${tab}rules: delegated implementation section${tab}templates/implement-rules.md isn't in the rules file"
+cat "$TPL/implement-rules.md" >> "$P/CLAUDE.md"; out="$(python3 "$CHECK" "$P")"
+has "implement: on with the rules section" "$out" "ok${tab}delegated implementation"
 
 # Obsidian's excluded folders.
 OB="$HERE/plugins/specbaton/scripts/obsidian.py"

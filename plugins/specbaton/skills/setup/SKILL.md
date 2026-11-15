@@ -69,6 +69,12 @@ Recommend one with the scan's signals: an organization remote, several authors o
 - **Obsidian** (optional): a `dashboard.md` with Dataview views of the ADRs and changes, and the folders Obsidian leaves out of its search and graph view. When the scan found `.obsidian/` (the folder is already a vault), say so and recommend yes.
 - **Code graphs** (optional): a graphify graph per unit (repo, service or package), refreshed by the handoff, so Claude can ask about the code's structure instead of reading it file by file. Needs graphify.
 - **Ticket cycle rules** (optional): test-first, local gate, pull request text, permissions and stacked branches (`templates/cycle-rules.md`). If the user wants them, ask what they need: the team's language for pull requests, the integration branch, the approvals a pull request needs, and the tracker.
+- **Delegated implementation** (optional, only with OpenSpec): `/specbaton:implement` hands a change's tasks to a subagent on a cheaper model, while this session checks each unit with evidence and keeps exploring, proposing and fixing the reviewer's findings. It saves the session's model, which is usually the costliest, for the thinking work. If the user wants it, ask:
+  - the implementer's model: `sonnet` (recommended, for cost and usage limits), `opus`, `haiku`, `fable`, or `inherit` for the session's own;
+  - the mode: `group` (recommended: one subagent per `## ` section of `tasks.md`), `task` (one per task) or `change` (one for all the pending tasks, for small changes);
+  - the effort: empty for the model's own default, or `low` to `max`.
+
+  Say that it runs unattended only in accept-edits or auto mode: in the default permission mode, each edit the implementer makes asks the user.
 
 ## Phase 3. Create the layer (⏸ CONFIRM)
 
@@ -122,6 +128,8 @@ In the rules file at the project root (`CLAUDE.md`, or `CLAUDE.local.md` in laye
 - In layer W, add to "How I work": "The team repos aren't modified: git, builds and tests run from each repo's folder, and ADRs, state and OpenSpec are never written inside them."
 - With the ticket cycle rules: append `templates/cycle-rules.md` with its placeholders filled in, and create `<MEM>/docs/reference/gates.md` with a `Unit | Folder | Tests | Lint | Type-check` table filled from what you find (Makefile targets, `package.json` scripts, `pytest`, `ruff`, `mypy`, `go test`…), marking `<FILL IN>` what you can't infer. Run each command once and note whether it passes, so it's clear which units already carry errors.
 
+With delegated implementation: append `templates/implement-rules.md`.
+
 With OpenSpec, if `openspec/config.yaml` has no `context:`, propose one describing the project. In layer B it's the team's file: only propose it.
 
 With Obsidian, copy `templates/dashboard.md` to the vault's root (the project root in W and A, MEM in B). In layer B or without OpenSpec, change the "State of the active changes" query to `FROM "status"` without the `file.name = "status" AND` condition, and drop "Open tasks by change". The user installs Dataview by hand.
@@ -152,12 +160,13 @@ Write `.claude/specbaton.json` at the project root (merge into it when it exists
   "obsidian": <true|false>,
   "obsidian_colors": <true|false>,
   "cycle_rules": <true|false>,
+  "implement": {"enabled": <true|false>, "model": "sonnet", "effort": "", "mode": "group", "max_retries": 2},
   "graphify_cmd": "",
   "farewell_patterns": []
 }
 ```
 
-Write `graphs`, `obsidian`, `obsidian_colors` and `cycle_rules` even when the user turned them down (`false`): a later setup then knows they were asked. `farewell_patterns` adds goodbyes in other languages (regular expressions, lowercase, without accents) to the built-in English and Spanish ones. `graphs.platform` is `merge`, `full`, `none` or `auto` (merge for several repos, full otherwise). `graphify_cmd` is only for a project that already has its own command to refresh the graphs; leave it empty to use specbaton's.
+Write `graphs`, `obsidian`, `obsidian_colors`, `cycle_rules` and, with OpenSpec, `implement` even when the user turned them down (`false`, or `{"enabled": false}` for `implement`): a later setup then knows they were asked. `implement.max_retries` is how many times a unit goes back to the implementer before this session fixes it. `farewell_patterns` adds goodbyes in other languages (regular expressions, lowercase, without accents) to the built-in English and Spanish ones. `graphs.platform` is `merge`, `full`, `none` or `auto` (merge for several repos, full otherwise). `graphify_cmd` is only for a project that already has its own command to refresh the graphs; leave it empty to use specbaton's.
 
 ## Phase 6. Code graphs (optional, ⏸ CONFIRM)
 
@@ -199,5 +208,6 @@ python3 "${CLAUDE_SKILL_DIR}/../../scripts/check.py" "$PWD"
 - After a compaction, a hook re-anchors the session on the files.
 - One change per session: before switching topics, `/specbaton:handoff` and `/clear`.
 - With code graphs: the handoff refreshes the graphs of the units the session touched, and a new folder gets its graph the first time a session works in it. `graphs.sh --list` shows the units.
+- With delegated implementation: once a change's tasks are ready, Claude offers `/specbaton:implement` in one line. On yes, a subagent on the chosen model implements each unit, and this session checks it (its diff, its verification and the spec) before checking it off. It stops only for a problem in the spec, an environment problem, or when a unit can't pass. The reviewer's findings are still fixed in this session.
 - After updating the plugin, run `/specbaton:setup` again: it keeps what's there and offers only what's new or missing.
 - Optional next step: the `specbaton-reviewer` plugin adds a second agent that writes the plan and reviews the code, read-only (`/specbaton-reviewer:setup`).
