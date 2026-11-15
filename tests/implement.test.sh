@@ -102,5 +102,20 @@ done
 mkdir -p "$T/plain"; bash "$S/snapshot.sh" "$T/plain" >/dev/null 2>"$T/err"; rc=$?
 [ "$rc" -eq 2 ] && grep -q "specbaton: " "$T/err" && ok "snapshot: not a repo exits 2" || no "snapshot: not a repo exits $rc" "$(cat "$T/err")"
 
+# The skill and the implementer's prompt.
+M="$HERE/plugins/specbaton"
+PROMPT="$M/prompts/implementer.md"; SKILL="$M/skills/implement/SKILL.md"
+missing=""
+for ph in $(grep -o '{{[A-Z_]*}}' "$PROMPT" 2>/dev/null | sort -u); do grep -qF -- "$ph" "$SKILL" 2>/dev/null || missing="$missing $ph"; done
+[ -f "$PROMPT" ] && [ -f "$SKILL" ] && [ -z "$missing" ] && ok "implement: every prompt placeholder is filled by its skill" || no "implement: placeholders no skill fills:${missing:- (a file is missing)}"
+got="$(grep -o '{{[A-Z_]*}}' "$PROMPT" 2>/dev/null | sort -u | tr '\n' ' ')"
+[ "$got" = "{{CHANGE}} {{CONTEXT_FILES}} {{OPENSPEC_CONTEXT}} {{REPOS}} {{ROOT}} {{RULES_FILE}} {{UNIT}} " ] && ok "implement: the prompt's placeholders are the design's" || no "implement: the prompt's placeholders" "$got"
+bad=""
+for skill in "$HERE"/plugins/*/skills/*/SKILL.md; do
+  plugin="${skill%/skills/*}"
+  for s in $(grep -m1 '^allowed-tools:' "$skill" | grep -o 'scripts/[A-Za-z_]*\.[a-z]*' | sort -u); do [ -f "$plugin/$s" ] || bad="$bad ${skill#"$HERE"/}:$s"; done
+done
+[ -z "$bad" ] && ok "skills: every script in allowed-tools exists" || no "skills: scripts that don't exist:$bad"
+
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]
