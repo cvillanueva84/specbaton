@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <img alt="Version 0.5.0" src="https://img.shields.io/badge/version-0.5.0-informational">
+  <img alt="Version 0.5.1" src="https://img.shields.io/badge/version-0.5.1-informational">
   <img alt="Claude Code plugins" src="https://img.shields.io/badge/Claude%20Code-plugins-d97757">
 </p>
 
@@ -106,7 +106,7 @@ Step by step, for your first change:
 1. **Open a session in the project.** A hook asks Claude to resume: it reads `NOW.md`, says where you left off and waits. The first time, `NOW.md` is empty.
 2. **Propose the change.** With OpenSpec, `/opsx:propose <what you want>` writes the proposal, specs, design and tasks under `openspec/changes/<change>/`. Without it, describe the change and Claude tracks it in its status file.
 3. **Get a plan** (with the reviewer). `/specbaton-reviewer:plan <change>`: the reviewer writes `plan.md`, and Claude sends back only what it can prove is missing (a scenario the plan doesn't cover, a path that doesn't exist), for up to 3 rounds.
-4. **Implement.** With delegated implementation on, Claude offers `/specbaton:implement <change>`: a subagent on a cheaper model (Sonnet by default) implements each group of tasks, and the session checks each group before checking it off. It reads the group's diff, runs its verification itself and compares it with the spec. It stops only for a problem in the spec, an environment problem, or a group that still fails after two rounds (then the session fixes it). Or say no and work as usual. When you settle a decision, Claude writes it as an ADR with `status: proposed`; you change it to `accepted` when you agree. Accepted ADRs aren't contradicted later: a new ADR supersedes them.
+4. **Implement.** With delegated implementation on, Claude offers `/specbaton:implement <change>`: a subagent on a cheaper model (Sonnet by default) implements each group of tasks, and the session checks each group before checking it off. It reads the group's diff, runs its verification itself and compares it with the spec. It stops only for a problem in the spec or in the environment: a group that still fails after `max_retries` rounds (2 by default) is fixed by the session itself, which then goes on. Or say no and work as usual. When you settle a decision, Claude writes it as an ADR with `status: proposed`; you change it to `accepted` when you agree. Accepted ADRs aren't contradicted later: a new ADR supersedes them.
 5. **Get a review** (with the reviewer). Open a draft pull request, then `/specbaton-reviewer:code <change>`: the reviewer writes `review.md`, a Claude subagent adds a pass as the team's reviewer, Claude adds a triage, and you decide each finding. After the fixes, `/specbaton-reviewer:code <change> validate` checks each one until the review closes.
 6. **Close the session.** Say goodbye ("that's all for today", "hasta mañana"…) or run `/specbaton:handoff`. Claude writes the status, the ADRs, the indexes and the tasks, and proposes the commit of the memory.
 7. **Next day.** Open a new session: it resumes from the files, not from a summary of the chat.
@@ -123,7 +123,7 @@ With delegated implementation on, the session's model is kept for the thinking w
 | Explore, propose, check the plan | The session |
 | Implement the tasks of `tasks.md` | The implementer, a subagent on `implement.model` (`sonnet` by default) |
 | Check each unit: its diff, its verification and the spec | The session |
-| An implementation defect | Back to the implementer, up to two rounds; then the session fixes it |
+| An implementation defect | Back to the implementer, up to `max_retries` rounds (2 by default); then the session fixes it |
 | A problem in the spec | The run stops; you decide, with a proposed ADR |
 | The reviewer's findings, of the plan and the code | The session |
 
@@ -253,7 +253,7 @@ To uninstall, `claude plugin uninstall specbaton@specbaton`. Your memory files, 
 
 ## Development
 
-Version 0.5.0 (memory) and 0.2.1 (reviewer), early. See [CHANGELOG.md](CHANGELOG.md).
+Version 0.5.1 (memory) and 0.2.1 (reviewer), early. See [CHANGELOG.md](CHANGELOG.md).
 
 - `bash tests/hooks.test.sh` checks the memory plugin's hooks and settings with simulated hook inputs.
 - `bash tests/setup.test.sh` checks how a second setup finds what's in place, what's missing and what's new.

@@ -10,7 +10,8 @@ isn't indented under another task. Its text is its lines as written: the checkbo
 indented deeper than it, up to the next task, the next "## " heading or another line as shallow as the task. A checkbox
 indented under a task belongs to that task, and the task is done only when all of its boxes are. Its id is its number
 (1.2, or 1.2a), or L<line> when it has none. A group is a "## " heading; its id is the heading's number ("## 1. Setup"
-is 1), or its position among the headings when it has none.
+is 1), or H<position> among the headings when it has none (H0 for tasks before any heading), so it never takes
+another group's number.
 
 Modes (default group):
     group   one unit per group with pending tasks
@@ -19,7 +20,8 @@ Modes (default group):
 
 --range keeps the tasks in comma-separated pieces, each A or A-B with dotted numbers: "1-3" (groups 1 to 3),
 "2.1-2.4" (those tasks), "1.2,3". A task without a number counts as the end of its group: a range of groups includes
-it, a range of task numbers doesn't.
+it, a range of task numbers doesn't, and no range includes one in a group without a number. A malformed range is an
+error even when no task would reach it.
 
 Prints JSON: {"total", "done", "pending", "units": [{"id", "title", "tasks": [{"id", "line", "lines", "text"}]}]}.
 The counts are the whole file's checkboxes, nested ones included, before the range, as OpenSpec counts them; "lines"
@@ -72,7 +74,7 @@ def parse(text):
             headings += 1
             title = heading.group(1)
             number = GROUP_NUMBER.match(title)
-            groups.append({"id": number.group(1) if number else str(headings), "title": title, "tasks": []})
+            groups.append({"id": number.group(1) if number else f"H{headings}", "title": title, "tasks": []})
         elif box:
             indent = columns(box.group(1))
             done = (box.group(2) or "").lower() == "x"
@@ -82,14 +84,15 @@ def parse(text):
                 continue
             close()
             if not groups:
-                groups.append({"id": "0", "title": "", "tasks": []})
+                groups.append({"id": "H0", "title": "", "tasks": []})
             group = groups[-1]
             number = TASK_ID.match(box.group(3))
             if number:
                 key = tuple(int(p) for p in number.group(1).split("."))
                 tid = number.group(1) + (number.group(2) or "")
             else:
-                key, tid = (int(group["id"]), math.inf), f"L{n}"
+                key = (int(group["id"]) if group["id"].isdigit() else math.inf, math.inf)
+                tid = f"L{n}"
             task = {"id": tid, "line": n, "boxes": [(n, done)], "key": key, "indent": indent, "lines": [line]}
             group["tasks"].append(task)
         elif task is not None and (not line.strip() or columns(line[:len(line) - len(line.lstrip())]) > task["indent"]):
@@ -105,6 +108,15 @@ def bound(text):
     if not BOUND.match(text):
         raise ValueError(f"malformed range piece {text!r}")
     return tuple(int(p) for p in text.split("."))
+
+
+def check_range(spec):
+    """Raise ValueError when any piece of a range is malformed, before any task is compared with it."""
+    for piece in spec.split(","):
+        lo, dash, hi = piece.partition("-")
+        bound(lo)
+        if dash:
+            bound(hi)
 
 
 def in_range(key, spec):
@@ -152,6 +164,8 @@ def main(argv):
         return 2
     groups = parse(text)
     try:
+        if args.spec is not None:
+            check_range(args.spec)
         result = units(groups, args.mode, args.spec)
     except ValueError as err:
         print(f"specbaton: {err} in --range {args.spec!r} (use pieces such as 1-3, 2.1-2.4 or 1.2,3)", file=sys.stderr)

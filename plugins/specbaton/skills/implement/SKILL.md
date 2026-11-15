@@ -39,7 +39,7 @@ Never switch branches. When STATUS maps the change's tasks to several tickets an
 
 ## 4. Each unit, in order
 
-1. **Snapshot.** For each repo in `{{REPOS}}`: `bash "${CLAUDE_SKILL_DIR}/../../scripts/snapshot.sh" <root>/<repo>`. Take one of `root` and of MEM too, when each is a git repo not already in that list (layer W's root, layer B's memory repo): the implementer may not touch the change's files or the memory. Keep each line: the tree before the unit, and HEAD.
+1. **Snapshot.** For each repo in `{{REPOS}}`: `bash "${CLAUDE_SKILL_DIR}/../../scripts/snapshot.sh" <root>/<repo>`. Take one of `root` and of MEM too, when each is a git repo not already in that list (layer W's root, layer B's memory repo): the implementer may not touch the change's files or the memory. Keep each line: the tree before the unit, HEAD and the branch. If a snapshot fails (exit 1 or 2), stop and show the user its message: without it, the unit's diff can't be checked.
 2. **Launch.** Fill the prompt in "The implementer's prompt" below, the text inside its fence. `{{UNIT}}` is the unit's tasks, each task's `text` exactly as `tasks.py` printed it. Launch a `general-purpose` subagent with the Agent tool, with that filled text as its whole prompt, `model` set to the model (left out for `inherit`), and `effort` set only when the settings or the arguments set one. Give it none of your own context or conclusions. Tell the user which unit is running, in one line. Wait for its notification before doing anything else in the change's repos, and never assume its result.
 3. **Report.** The subagent answers `done`, `blocked: spec` or `blocked: environment`, with the files it changed, the verification it ran and its doubts.
 4. **Check.** Take a new snapshot of each repo. Your check is limited to:
@@ -48,7 +48,7 @@ Never switch branches. When STATUS maps the change's tasks to several tickets an
    - **the spec:** the scenarios the tasks name or, when they name none, the scenarios of the spec whose capability the touched code implements, and the design decisions and ADRs the tasks cite;
    - **the scope:** a change outside the unit's tasks is a defect, and so is any change in the snapshots of the root or MEM.
 
-   If HEAD moved or the branch changed in any repo, stop and show the user what happened. Revert nothing.
+   If HEAD or the branch (the snapshot line's second and third fields) changed in any repo, stop and show the user what happened. Revert nothing.
 5. **Outcome.**
    - **Pass:** check off every checkbox of the unit's tasks in `tasks.md`: each line in a task's `lines`, with `x` in its box. Then go on to the next unit.
    - **Defect:** send the evidence (the scenario or task, the file and line, the failing output) to the same subagent with `SendMessage`, which keeps its context (load `SendMessage` with ToolSearch when it's deferred). Check its answer the same way. After `implement_max_retries` rounds that still fail, fix the unit yourself, with the smallest change, run its verification, check it off and note it for the summary.

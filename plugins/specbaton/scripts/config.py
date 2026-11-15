@@ -76,10 +76,9 @@ def main(argv):
     values["graphs_exclude"] = "\n".join(str(e).strip("/") for e in graphs.get("exclude") or [])
     impl = cfg.get("implement") if isinstance(cfg.get("implement"), dict) else {}
     values["implement_enabled"] = bool(impl.get("enabled", False))
-    values["implement_model"] = str(impl.get("model", "sonnet"))
-    values["implement_effort"] = str(impl.get("effort", ""))
-    values["implement_mode"] = str(impl.get("mode", "group"))
-    values["implement_max_retries"] = str(impl.get("max_retries", 2))
+    for name, default in (("model", "sonnet"), ("effort", ""), ("mode", "group"), ("max_retries", 2)):
+        value = impl.get(name)
+        values[f"implement_{name}"] = str(default if value is None else value)  # null means the default
     for k, v in list(values.items()):
         if isinstance(v, bool):
             values[k] = "true" if v else "false"

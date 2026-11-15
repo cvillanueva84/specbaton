@@ -1,6 +1,16 @@
 # Changelog
 
-## Memory 0.5.0 and reviewer 0.2.1 · 2026-11-15
+## 0.5.1 · 2026-11-15
+
+The six minor findings left from 0.5.0's review.
+
+- `tasks.py` checks a range whole before using it, so a malformed piece (`--range 1,x`) is an error even when no task reaches it.
+- A `## ` heading without a number gets the id `H<position>` (`H0` for tasks before any heading), so it never takes another group's number (`## Prep` before `## 1. Setup` gave both `1`). No range includes its tasks without a number.
+- `snapshot.sh` prints the branch as a third field, so the skill notices a branch switched at the same commit. When git fails, its own message follows specbaton's, and the skill stops and shows it.
+- `null` values in `"implement"` fall back to their defaults instead of printing `None`. A `max_retries` of 0 stays 0.
+- Wording: the README and the setup say that a unit that still fails after `max_retries` rounds is fixed by the session, which goes on; it doesn't stop the run.
+
+## Reviewer 0.2.1 and memory 0.5.0 · 2026-11-15
 
 Delegated implementation: a change's tasks go to a subagent on a cheaper model, and the session checks each unit.
 

@@ -41,6 +41,11 @@ I="$T/impl"; mkdir -p "$I/.claude"
 printf '{"version": 1, "implement": {"enabled": true, "model": "opus", "effort": "high", "mode": "task", "max_retries": 1}}\n' > "$I/.claude/specbaton.json"
 v=""; for k in enabled model effort mode max_retries; do v="$v$(python3 "$CFG" "$I" --key "implement_$k") "; done
 [ "$v" = "true opus high task 1 " ] && ok "config: implement values" || no "config: implement values" "$v"
+printf '{"version": 1, "implement": {"enabled": true, "model": null, "effort": null, "mode": null, "max_retries": null}}\n' > "$I/.claude/specbaton.json"
+v=""; for k in model effort mode max_retries; do v="$v$(python3 "$CFG" "$I" --key "implement_$k")/"; done
+[ "$v" = "sonnet//group/2/" ] && ok "config: implement nulls fall back to the defaults" || no "config: implement nulls" "$v"
+printf '{"version": 1, "implement": {"enabled": true, "max_retries": 0}}\n' > "$I/.claude/specbaton.json"
+v="$(python3 "$CFG" "$I" --key implement_max_retries)"; [ "$v" = "0" ] && ok "config: max_retries 0 stays 0" || no "config: max_retries 0" "$v"
 
 out="$(bash "$H/session-start.sh" </dev/null)"; [[ "$out" == *"/specbaton:resume-work"* ]] && ok "session start asks for resume-work" || no "session start" "$out"
 out="$(bash "$H/after-compact.sh" </dev/null)"; [[ "$out" == *"compacted"* && "$out" == *"add-login"* ]] && ok "after compact re-anchors and prints NOW.md" || no "after compact" "$out"
