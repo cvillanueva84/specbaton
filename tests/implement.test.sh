@@ -74,5 +74,33 @@ tasks "$F" --mode nope; { [ "$rc" -eq 2 ] && grep -q "invalid choice" "$T/err"; 
 tasks "$T/missing.md"; { [ "$rc" -eq 2 ] && grep -q "specbaton: .*missing.md" "$T/err"; } || errs="$errs missing:$rc"
 [ -z "$errs" ] && ok "tasks: errors exit 2" || no "tasks: errors exit 2" "$errs"
 
+# snapshot.sh: a tree of the working tree, in a repo whose path has a space, without touching the index or HEAD.
+R="$T/my repo"; mkdir -p "$R"; git -C "$R" init -q -b main; printf 'ignored.log\n' > "$R/.gitignore"
+snap() { bash "$S/snapshot.sh" "$R" 2>"$T/err"; }
+s="$(snap)"
+if [[ "$s" =~ ^[0-9a-f]{40}\ none$ ]] && [ "$(git -C "$R" cat-file -t "${s%% *}")" = "tree" ]; then ok "snapshot: a repo with no commits"; else no "snapshot: a repo with no commits" "$s$(cat "$T/err")"; fi
+echo one > "$R/a.txt"; git -C "$R" add -A; git -C "$R" -c user.email=t@t -c user.name=t commit -qm init
+s1="$(snap)"; echo two > "$R/a.txt"; s2="$(snap)"
+names="$(git -C "$R" diff --name-only "${s1%% *}" "${s2%% *}")"
+[ "$names" = "a.txt" ] && [ "${s2#* }" = "$(git -C "$R" rev-parse HEAD)" ] && ok "snapshot: an edit to a tracked file" || no "snapshot: an edit to a tracked file" "$names / $s2"
+echo new > "$R/b.txt"; s3="$(snap)"
+[ "$(git -C "$R" diff --name-only "${s2%% *}" "${s3%% *}")" = "b.txt" ] && ok "snapshot: a new untracked file" || no "snapshot: a new untracked file" "$s2 / $s3"
+echo noise > "$R/ignored.log"; s4="$(snap)"
+[[ "$s4" =~ ^[0-9a-f]{40}\  ]] && [ "${s4%% *}" = "${s3%% *}" ] && ok "snapshot: an ignored file doesn't count" || no "snapshot: an ignored file doesn't count" "$s3 / $s4"
+git -C "$R" add a.txt
+before="$(git -C "$R" diff --cached --name-only; git -C "$R" status --porcelain)"; s5="$(snap)"
+after="$(git -C "$R" diff --cached --name-only; git -C "$R" status --porcelain)"
+[[ "$s5" =~ ^[0-9a-f]{40}\  ]] && [ -n "$before" ] && [ "$before" = "$after" ] && ok "snapshot: touches nothing" || no "snapshot: touches nothing" "$before / $after"
+# Racy git: an edit of the same size, in the same second the index was written, must still be seen. Repeated, since
+# it depends on the clock: with a seed index that loses its timestamp, some rounds miss the edit.
+stale=0
+for i in $(seq 10 49); do
+  git -C "$R" add a.txt; printf 'v%s\n' "$i" > "$R/a.txt"; s="$(snap)"
+  [ "$(git -C "$R" rev-parse "${s%% *}:a.txt")" = "$(git -C "$R" hash-object "$R/a.txt")" ] || stale=$((stale + 1))
+done
+[ "$stale" -eq 0 ] && ok "snapshot: a same-size edit in the same second is seen" || no "snapshot: $stale of 40 snapshots missed a same-size edit"
+mkdir -p "$T/plain"; bash "$S/snapshot.sh" "$T/plain" >/dev/null 2>"$T/err"; rc=$?
+[ "$rc" -eq 2 ] && grep -q "specbaton: " "$T/err" && ok "snapshot: not a repo exits 2" || no "snapshot: not a repo exits $rc" "$(cat "$T/err")"
+
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]
