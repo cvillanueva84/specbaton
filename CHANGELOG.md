@@ -15,6 +15,7 @@ Why: implementation (reading files, editing, running tests again and again) is w
   - the units: the modes, the ranges, sub-bullets, tasks without a number and CRLF;
   - the snapshots: untracked and ignored files, an untouched index, and a same-size edit in the same second the index was written. That last case caught a copy of the index that lost its timestamp and missed such edits;
   - that the prompt's placeholders and every skill's scripts line up.
+- **Checked by hand** in a throwaway project, with the session on Sonnet and the implementer on Haiku. The first group was implemented, checked through the session's own test run and checked off. The run then stopped at the second group, whose task contradicted the spec: it showed both sides and proposed an ADR, with nothing committed. An earlier run had stopped before any unit, because the prompt lived in `prompts/`, outside what the session may read. It now ends the skill's own `SKILL.md`.
 
 ## Reviewer 0.2.0 and memory 0.4.1 · 2026-11-15
 
