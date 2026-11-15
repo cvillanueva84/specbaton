@@ -32,6 +32,16 @@ v="$(python3 "$CFG" "$P/sub/deep" --key memory_dir_abs)"; [ "$v" = "$T/project-m
 v="$(python3 "$CFG" "$P" --key status_path_abs)"; [ "$v" = "$P/../project-memory/status/{change}.md" ] && ok "config: status path" || no "config: status path" "$v"
 v="$(python3 "$CFG" "$P" --key openspec)"; [ "$v" = "false" ] && ok "config: booleans" || no "config: booleans" "$v"
 
+# Delegated implementation: off by default, with its defaults, and the values a project sets.
+v="$(python3 "$CFG" "$P" --key implement_enabled)"; [ "$v" = "false" ] && ok "config: implement off by default" || no "config: implement_enabled default" "$v"
+v="$(python3 "$CFG" "$P" --key implement_model)/$(python3 "$CFG" "$P" --key implement_mode)/$(python3 "$CFG" "$P" --key implement_max_retries)"
+[ "$v" = "sonnet/group/2" ] && ok "config: implement defaults" || no "config: implement defaults" "$v"
+v="$(python3 "$CFG" "$P" --key implement_effort)"; [ -z "$v" ] && ok "config: implement effort empty by default" || no "config: implement_effort default" "$v"
+I="$T/impl"; mkdir -p "$I/.claude"
+printf '{"version": 1, "implement": {"enabled": true, "model": "opus", "effort": "high", "mode": "task", "max_retries": 1}}\n' > "$I/.claude/specbaton.json"
+v=""; for k in enabled model effort mode max_retries; do v="$v$(python3 "$CFG" "$I" --key "implement_$k") "; done
+[ "$v" = "true opus high task 1 " ] && ok "config: implement values" || no "config: implement values" "$v"
+
 out="$(bash "$H/session-start.sh" </dev/null)"; [[ "$out" == *"/specbaton:resume-work"* ]] && ok "session start asks for resume-work" || no "session start" "$out"
 out="$(bash "$H/after-compact.sh" </dev/null)"; [[ "$out" == *"compacted"* && "$out" == *"add-login"* ]] && ok "after compact re-anchors and prints NOW.md" || no "after compact" "$out"
 

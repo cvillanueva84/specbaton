@@ -9,6 +9,11 @@ The project's settings live in .claude/specbaton.json, written by /specbaton:set
 project root, or absolute. The project root is the given dir (default: $CLAUDE_PROJECT_DIR, else the current dir) or
 the nearest folder above it that has .claude/specbaton.json.
 
+Besides the top-level keys, it prints the resolved paths (root, memory_dir_abs, rules_file_abs, status_path_abs), the
+code graphs' graphs_enabled, and the delegated implementation's "implement" section as implement_enabled (default
+false), implement_model (sonnet), implement_effort (empty: the model's own), implement_mode (group) and
+implement_max_retries (2).
+
 Exit codes: 0 found, 1 no settings file (specbaton isn't set up in this project), 2 the file isn't valid JSON.
 """
 import json
@@ -69,6 +74,12 @@ def main(argv):
     graphs = cfg.get("graphs") if isinstance(cfg.get("graphs"), dict) else {}
     values["graphs_enabled"] = bool(graphs.get("enabled", False))
     values["graphs_exclude"] = "\n".join(str(e).strip("/") for e in graphs.get("exclude") or [])
+    impl = cfg.get("implement") if isinstance(cfg.get("implement"), dict) else {}
+    values["implement_enabled"] = bool(impl.get("enabled", False))
+    values["implement_model"] = str(impl.get("model", "sonnet"))
+    values["implement_effort"] = str(impl.get("effort", ""))
+    values["implement_mode"] = str(impl.get("mode", "group"))
+    values["implement_max_retries"] = str(impl.get("max_retries", 2))
     for k, v in list(values.items()):
         if isinstance(v, bool):
             values[k] = "true" if v else "false"
