@@ -24,7 +24,7 @@ cat > .claude/specbaton.json <<'EOF'
  "custom": {"command": ["fakecustom", "--ask", "{prompt}"], "model_args": ["-m", "{model}"], "output": "json", "text_field": "answer.text", "id_field": "thread"}}}
 EOF
 git add -A && git -c user.email=t@t -c user.name=t commit -qm init
-git -C api init -q && echo a > api/a.js && git -C api add . && git -C api -c user.email=t@t -c user.name=t commit -qm init
+git -C api init -q -b main && echo a > api/a.js && git -C api add . && git -C api -c user.email=t@t -c user.name=t commit -qm init
 
 # Fake CLIs. Each records its arguments in $T/args-<name>, and FAKE picks the case.
 B="$T/bin"; mkdir -p "$B"
@@ -140,7 +140,7 @@ PATH="/usr/bin:/bin" SPECBATON_CLI=claude bash "$SCRIPTS/reviewer_readonly.sh" "
 # change_diff.sh masks secrets
 git -C api checkout -qb feat && printf 'STRIPE_SECRET_KEY=sk_live_abcdefghijk123\n"password": "supersecret123"\nghp_abcdefghijklmnopqrstuvwxyz1234\nconst k = process.env.API_TOKEN;\n' > api/s.env \
   && git -C api add . && git -C api -c user.email=t@t -c user.name=t commit -qm s
-bash "$SCRIPTS/change_diff.sh" master api > "$T/diff" 2>"$T/err" || bash "$SCRIPTS/change_diff.sh" main api > "$T/diff" 2>"$T/err"
+bash "$SCRIPTS/change_diff.sh" main api > "$T/diff" 2>"$T/err"
 if grep -q 'sk_live_\|supersecret\|ghp_' "$T/diff"; then echo "FAIL change_diff: a secret survived"; grep 'sk_live_\|supersecret\|ghp_' "$T/diff"; fail=$((fail + 1))
 elif grep -q 'process.env.API_TOKEN' "$T/diff" && grep -q '<redacted>' "$T/diff"; then echo "ok   change_diff: secrets masked, code kept"; pass=$((pass + 1))
 else echo "FAIL change_diff: unexpected output"; head -20 "$T/diff"; fail=$((fail + 1)); fi
