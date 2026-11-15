@@ -1,5 +1,21 @@
 # Changelog
 
+## Memory 0.5.0 and reviewer 0.2.1 · 2026-11-15
+
+Delegated implementation: a change's tasks go to a subagent on a cheaper model, and the session checks each unit.
+
+Why: implementation (reading files, editing, running tests again and again) is where most of a change's tokens go. With the session on the costliest model, it's also what spends the usage limits fastest, while the thinking work (exploring, proposing, checking the plan and the code, fixing the reviewer's findings) is where that model earns its cost. Ruled out: building it into specbaton-reviewer (users without the reviewer would lose it, and that plugin's agent only reads), and an agent file the setup writes into each project (the copy drifts as the plugin improves, and updating it would risk the user's own edits).
+
+- **`/specbaton:implement [change] [mode] [model] [range]`.** It splits `tasks.md` into units (`scripts/tasks.py`): by `task`, by `group` (each `## ` section, the default) or the whole `change`. Each unit goes to a `general-purpose` subagent on `implement.model` (`sonnet` by default) with `prompts/implementer.md`: read the project's rules and the change's files, implement only those tasks, run their verification, never commit, and stop with `blocked: spec` when the spec looks wrong.
+- **The check.** Before checking off a unit, the session reads only its diff, runs the verification itself and compares the spec's scenarios. `scripts/snapshot.sh` takes a git tree of the working tree before and after each unit, through a temporary index, so each unit's diff is exact while nothing is committed. A defect goes back to the same subagent with the evidence, up to `max_retries` (2) rounds, and then the session fixes it. A problem in the spec stops the run with a proposed ADR. Commits follow the project's rules; the implementer never makes one.
+- **The offer.** `templates/implement-rules.md` has Claude offer it in one line once a change's tasks are ready: after `/specbaton-reviewer:plan`, or after `/opsx:propose` without the reviewer. `/opsx:apply` still runs as it is, and the reviewer's findings are still fixed in the session.
+- **Settings and setup.** `"implement": {"enabled", "model", "effort", "mode", "max_retries"}` in `.claude/specbaton.json`, read by `config.py`. `/specbaton:setup` offers it in projects with OpenSpec, and `check.py` reports it as to ask in a setup that never offered it.
+- **Reviewer 0.2.1.** `/specbaton-reviewer:plan` closes its summary with the offer when delegated implementation is on (`reviewer_config.py` prints `implement_enabled`).
+- **Tests.** `tests/implement.test.sh` covers:
+  - the units: the modes, the ranges, sub-bullets, tasks without a number and CRLF;
+  - the snapshots: untracked and ignored files, an untouched index, and a same-size edit in the same second the index was written. That last case caught a copy of the index that lost its timestamp and missed such edits;
+  - that the prompt's placeholders and every skill's scripts line up.
+
 ## Reviewer 0.2.0 and memory 0.4.1 · 2026-11-15
 
 The pre-review adds a pass as the team's reviewer, and adopts the team's bar for what blocks.

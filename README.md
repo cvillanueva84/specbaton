@@ -12,13 +12,13 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <img alt="Version 0.4.1" src="https://img.shields.io/badge/version-0.4.1-informational">
+  <img alt="Version 0.5.0" src="https://img.shields.io/badge/version-0.5.0-informational">
   <img alt="Claude Code plugins" src="https://img.shields.io/badge/Claude%20Code-plugins-d97757">
 </p>
 
 SpecBaton is two [Claude Code](https://code.claude.com) plugins that install separately:
 
-- **`specbaton`** keeps the work's memory in versioned files, so a compaction or a new chat loses nothing: decisions as ADRs, one change per session, and two rituals, resume-work and handoff, triggered by hooks. It works on its own.
+- **`specbaton`** keeps the work's memory in versioned files, so a compaction or a new chat loses nothing: decisions as ADRs, one change per session, and two rituals, resume-work and handoff, triggered by hooks. It can also hand a change's tasks to a subagent on a cheaper model while the session checks each one. It works on its own.
 - **`specbaton-reviewer`** adds a second agent, run from the command line, that writes the implementation plan before Claude implements and reviews the diff afterwards. It only reads, and a wrapper proves it with a git snapshot. It can be Cursor, Antigravity, Claude with another model, or any CLI you configure.
 
 ## Why
@@ -76,12 +76,19 @@ sequenceDiagram
     actor You
     participant C as Claude
     participant R as Reviewer (read-only)
+    participant I as Implementer (Sonnet)
     You->>C: Propose the change (/opsx:propose)
     C->>R: /specbaton-reviewer:plan
     R-->>C: plan.md
     C->>R: Verifiable gaps only, up to 3 rounds
     R-->>C: Corrected plan
-    You->>C: Implement
+    C->>You: Implement with Sonnet, by groups?
+    You->>C: Yes
+    loop Each group of tasks
+        C->>I: The group's tasks
+        I-->>C: The code and its report
+        Note over C: Checks the diff, runs the<br/>verification, compares the spec
+    end
     Note over C: Decisions become ADRs (proposed)
     C->>C: Draft pull request
     C->>R: /specbaton-reviewer:code
@@ -99,7 +106,7 @@ Step by step, for your first change:
 1. **Open a session in the project.** A hook asks Claude to resume: it reads `NOW.md`, says where you left off and waits. The first time, `NOW.md` is empty.
 2. **Propose the change.** With OpenSpec, `/opsx:propose <what you want>` writes the proposal, specs, design and tasks under `openspec/changes/<change>/`. Without it, describe the change and Claude tracks it in its status file.
 3. **Get a plan** (with the reviewer). `/specbaton-reviewer:plan <change>`: the reviewer writes `plan.md`, and Claude sends back only what it can prove is missing (a scenario the plan doesn't cover, a path that doesn't exist), for up to 3 rounds.
-4. **Implement.** Work as usual. When you settle a decision, Claude writes it as an ADR with `status: proposed`; you change it to `accepted` when you agree. Accepted ADRs aren't contradicted later: a new ADR supersedes them.
+4. **Implement.** With delegated implementation on, Claude offers `/specbaton:implement <change>`: a subagent on a cheaper model (Sonnet by default) implements each group of tasks, and the session checks each group before checking it off. It reads the group's diff, runs its verification itself and compares it with the spec. It stops only for a problem in the spec, an environment problem, or a group that still fails after two rounds (then the session fixes it). Or say no and work as usual. When you settle a decision, Claude writes it as an ADR with `status: proposed`; you change it to `accepted` when you agree. Accepted ADRs aren't contradicted later: a new ADR supersedes them.
 5. **Get a review** (with the reviewer). Open a draft pull request, then `/specbaton-reviewer:code <change>`: the reviewer writes `review.md`, a Claude subagent adds a pass as the team's reviewer, Claude adds a triage, and you decide each finding. After the fixes, `/specbaton-reviewer:code <change> validate` checks each one until the review closes.
 6. **Close the session.** Say goodbye ("that's all for today", "hasta mañana"…) or run `/specbaton:handoff`. Claude writes the status, the ADRs, the indexes and the tasks, and proposes the commit of the memory.
 7. **Next day.** Open a new session: it resumes from the files, not from a summary of the chat.
@@ -109,6 +116,17 @@ Two habits make it work:
 - **One change per session.** To switch topics, run `/specbaton:handoff`, then `/clear`.
 - **Teach the reviewer.** When the team comments on the pull request, `/specbaton-reviewer:code <change> learn` finds what humans caught that the agent missed and proposes improvements to the review skill.
 
+With delegated implementation on, the session's model is kept for the thinking work:
+
+| Work | Who |
+| --- | --- |
+| Explore, propose, check the plan | The session |
+| Implement the tasks of `tasks.md` | The implementer, a subagent on `implement.model` (`sonnet` by default) |
+| Check each unit: its diff, its verification and the spec | The session |
+| An implementation defect | Back to the implementer, up to two rounds; then the session fixes it |
+| A problem in the spec | The run stops; you decide, with a proposed ADR |
+| The reviewer's findings, of the plan and the code | The session |
+
 ## Commands
 
 | Command | When | What it does |
@@ -116,6 +134,7 @@ Two habits make it work:
 | `/specbaton:setup` | Once per project, and again after an update | Detects the structure, creates the memory layer and `.claude/specbaton.json`. In a project already set up, offers only what's missing or new |
 | `/specbaton:resume-work [change]` | A hook asks for it at the start of every session; also by hand | Offers to commit what an earlier handoff left uncommitted, reads `NOW.md`, the change's status and its ADRs, checks git since the last handoff, and summarizes |
 | `/specbaton:handoff [change]` | When you say goodbye (a hook asks for it), when the context gets heavy, or before switching changes | Writes the status, creates the missing ADRs as `proposed`, updates the indexes, tasks and code graphs, and proposes the commit |
+| `/specbaton:implement [change] [mode] [model] [range]` | When Claude offers it, once a change's tasks are ready; also by hand | A subagent on a cheaper model implements each unit of `tasks.md`; the session checks each one (its diff, its verification and the spec) before checking it off |
 | `/specbaton-reviewer:setup` | Once per project | Chooses the reviewer CLI and models, creates the review skill, runs three real read-only tests |
 | `/specbaton-reviewer:plan <change>` | Right after proposing a change | The reviewer writes `plan.md`; Claude sends back only verifiable gaps, up to 3 rounds in the same conversation |
 | `/specbaton-reviewer:code <change>` | Right after opening a draft pull request | The reviewer reviews the diff and, in parallel, a Claude subagent reviews as the team's reviewer; Claude adds a triage where you decide each finding |
@@ -177,7 +196,7 @@ A reviewer from another model family brings other blind spots. Claude reviewing 
 
 The plan and the reviews live in the change's OpenSpec folder, so the reviewer works with OpenSpec changes.
 
-**Privacy.** The memory plugin sends nothing anywhere: its hooks only add text to the session, and the code graphs are built locally, without a model. The reviewer is the exception: the diff, the specs and the files it reads go to the CLI you choose, under your own account with that tool. The wrapper masks the usual secrets in the diff (`.env`-style keys, PEM keys, known token prefixes), but check what you send. The learning step reads the pull request's comments with `gh`.
+**Privacy.** The memory plugin sends nothing anywhere: its hooks only add text to the session, the code graphs are built locally, without a model, and the implementer is a subagent of your own Claude Code session. The reviewer is the exception: the diff, the specs and the files it reads go to the CLI you choose, under your own account with that tool. The wrapper masks the usual secrets in the diff (`.env`-style keys, PEM keys, known token prefixes), but check what you send. The learning step reads the pull request's comments with `gh`.
 
 ## Settings
 
@@ -195,6 +214,7 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
   "obsidian": true,
   "obsidian_colors": true,
   "cycle_rules": false,
+  "implement": {"enabled": true, "model": "sonnet", "effort": "", "mode": "group", "max_retries": 2},
   "farewell_patterns": [],
   "reviewer": {
     "cli": "agy",
@@ -209,7 +229,7 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
 }
 ```
 
-`farewell_patterns` adds goodbyes in other languages (regular expressions) to the built-in English and Spanish ones. A feature set to `false` was turned down, and a later setup doesn't ask about it again.
+`farewell_patterns` adds goodbyes in other languages (regular expressions) to the built-in English and Spanish ones. `implement` sets delegated implementation: the implementer's `model` (`sonnet`, `opus`, `haiku`, `fable`, or `inherit` for the session's), its `effort` (empty for the model's own), the `mode` (`task`, `group` or `change`) and `max_retries`, the rounds a unit goes back to the implementer before the session fixes it. A feature set to `false` (`{"enabled": false}` for `implement`) was turned down, and a later setup doesn't ask about it again.
 
 ## Updating and uninstalling
 
@@ -228,15 +248,17 @@ To uninstall, `claude plugin uninstall specbaton@specbaton`. Your memory files, 
 
 - **A session doesn't open with a summary.** The hooks stay silent when there's no `.claude/specbaton.json` at or above the folder you opened, or when `python3` is missing. Run `/specbaton:resume-work` by hand, or `/specbaton:setup` if the project isn't set up.
 - **The handoff doesn't run when you say goodbye.** Short goodbyes ("bye", "good night", "chao") count only at the start or end of a message, so "the goodbye screen has a bug" isn't one. Run `/specbaton:handoff`, or add your own phrases in `farewell_patterns`.
+- **The implementer keeps asking for permission.** In the default permission mode, each edit the implementer makes asks you. For an unattended run, switch to accept-edits or auto mode (Shift+Tab cycles the modes) before `/specbaton:implement`.
 - **The reviewer stops with exit code 3** (the CLI isn't installed, signed in or trusting the folder), **4** (the agent changed files: nothing is reverted, and Claude shows what changed) **or 5** (another failure, with its log). The commands say which, and offer to go on without the reviewer when it can't run.
 
 ## Development
 
-Version 0.4.1 (memory) and 0.2.0 (reviewer), early. See [CHANGELOG.md](CHANGELOG.md).
+Version 0.5.0 (memory) and 0.2.1 (reviewer), early. See [CHANGELOG.md](CHANGELOG.md).
 
 - `bash tests/hooks.test.sh` checks the memory plugin's hooks and settings with simulated hook inputs.
 - `bash tests/setup.test.sh` checks how a second setup finds what's in place, what's missing and what's new.
 - `bash tests/graphs.test.sh` checks how units are discovered for the code graphs, and builds real graphs when graphify is installed.
+- `bash tests/implement.test.sh` checks how `tasks.py` splits a change's tasks into units, the working-tree snapshots of `snapshot.sh` (a same-size edit in the same second included), and that the implementer's prompt and every skill's scripts line up.
 - `bash tests/reviewer.test.sh` checks the wrapper with fake CLIs for the four adapters: answers, resume flags, denied actions, writes inside repos and inside ignored folders, unknown models, usage limits and secret masking.
 - `claude plugin validate .` checks the marketplace and each plugin's manifest.
 - The read-only behavior of each real CLI was checked by hand in November 2026, against Cursor's CLI, Antigravity 1.5.1 and Claude Code 2.1.

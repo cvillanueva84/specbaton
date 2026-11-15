@@ -7,7 +7,7 @@ A Claude Code plugin marketplace with two plugins that install separately. `READ
 | Path | What |
 | --- | --- |
 | `.claude-plugin/marketplace.json` | Marketplace listing (no versions here) |
-| `plugins/specbaton/` | Memory plugin: `skills/` (setup, resume-work, handoff), `hooks/`, `scripts/`, `templates/` |
+| `plugins/specbaton/` | Memory plugin: `skills/` (setup, resume-work, handoff, implement), `hooks/`, `prompts/`, `scripts/`, `templates/` |
 | `plugins/specbaton-reviewer/` | Reviewer plugin: `skills/` (setup, plan, code), `prompts/`, `scripts/`, `templates/review-skill/` |
 | `tests/*.test.sh` | Plain bash tests, one file per area |
 
@@ -18,6 +18,7 @@ A Claude Code plugin marketplace with two plugins that install separately. `READ
 | Hooks, `config.py` | `bash tests/hooks.test.sh` |
 | `check.py`, `obsidian.py` (a second setup) | `bash tests/setup.test.sh` |
 | `units.py`, `graphs.sh` | `bash tests/graphs.test.sh` (real build only when `graphify` is installed) |
+| `tasks.py`, `snapshot.sh`, the implementer prompt, every skill's `allowed-tools` | `bash tests/implement.test.sh` |
 | Reviewer wrapper, stream parser, `change_diff.sh`, review skill template | `bash tests/reviewer.test.sh` |
 | Manifests | `claude plugin validate .` |
 | Try local changes in a real session | `claude --plugin-dir ./plugins/specbaton --plugin-dir ./plugins/specbaton-reviewer` |
