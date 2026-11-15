@@ -152,6 +152,11 @@ else echo "FAIL change_diff: unexpected output"; head -20 "$T/diff"; fail=$((fai
 R="$HERE/plugins/specbaton-reviewer"
 v="$(python3 "$SCRIPTS/reviewer_config.py" "$W" --key pass_model)"
 [ "$v" = "sonnet" ] && { echo "ok   pass_model defaults to sonnet"; pass=$((pass + 1)); } || { echo "FAIL pass_model default: $v"; fail=$((fail + 1)); }
+v="$(python3 "$SCRIPTS/reviewer_config.py" "$W" --key implement_enabled)"
+[ "$v" = "false" ] && { echo "ok   implement_enabled false by default"; pass=$((pass + 1)); } || { echo "FAIL implement_enabled default: $v"; fail=$((fail + 1)); }
+mkdir -p "$T/impl-rev/.claude"; printf '{"version": 1, "implement": {"enabled": true}}\n' > "$T/impl-rev/.claude/specbaton.json"
+v="$(python3 "$SCRIPTS/reviewer_config.py" "$T/impl-rev" --key implement_enabled)"
+[ "$v" = "true" ] && { echo "ok   implement_enabled true when on"; pass=$((pass + 1)); } || { echo "FAIL implement_enabled on: $v"; fail=$((fail + 1)); }
 missing=""
 for pair in "review.md:code" "review-followup.md:code" "reviewer-pass.md:code" "plan.md:plan" "plan-followup.md:plan"; do
   prompt="${pair%%:*}"; skill="${pair##*:}"

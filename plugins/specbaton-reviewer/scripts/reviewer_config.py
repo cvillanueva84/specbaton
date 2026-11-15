@@ -8,7 +8,8 @@ Usage:
                                                      the custom adapter's command, NUL-separated
 
 Settings live in the "reviewer" section of .claude/specbaton.json, written by /specbaton-reviewer:setup. The memory
-layer's settings (memory_dir, status_path) come from the same file when the specbaton plugin set it up. The project
+layer's settings (memory_dir, status_path) come from the same file when the specbaton plugin set it up, and so does
+implement_enabled (specbaton's delegated implementation, which the plan's summary offers when it's on). The project
 root is the given dir (default: $CLAUDE_PROJECT_DIR, else the current dir) or the nearest folder above it that has
 .claude/specbaton.json.
 
@@ -120,6 +121,8 @@ def main(argv):
     status = str(cfg.get("status_path", "openspec/changes/{change}/status.md"))
     values["status_path_abs"] = status if os.path.isabs(status) else os.path.join(root, status)
     values["openspec"] = "true" if cfg.get("openspec", True) else "false"
+    impl = cfg.get("implement")
+    values["implement_enabled"] = "true" if isinstance(impl, dict) and impl.get("enabled") else "false"
     for k, v in list(values.items()):
         if isinstance(v, bool):
             values[k] = "true" if v else "false"

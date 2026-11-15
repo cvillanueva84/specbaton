@@ -12,7 +12,7 @@ Reply to the user in their language. Whenever a step says "run the wrapper", it 
 `bash "${CLAUDE_SKILL_DIR}/../../scripts/reviewer_readonly.sh" <prompt file> <output file> <model>`
 Before waiting, show the user the "Live progress: tail -f …" line it prints, so they can follow it.
 
-0. **Settings.** Run `python3 "${CLAUDE_SKILL_DIR}/../../scripts/reviewer_config.py" "${CLAUDE_PROJECT_DIR}"`. If it exits with 1, or prints no `cli`, the reviewer isn't set up: suggest `/specbaton-reviewer:setup` and stop. Note `cli`, `plan_model`, `memory_dir_abs` (MEM), `status_path_abs`, `memory_outside_root`, `custom_resume` and `max_rounds`.
+0. **Settings.** Run `python3 "${CLAUDE_SKILL_DIR}/../../scripts/reviewer_config.py" "${CLAUDE_PROJECT_DIR}"`. If it exits with 1, or prints no `cli`, the reviewer isn't set up: suggest `/specbaton-reviewer:setup` and stop. Note `cli`, `plan_model`, `memory_dir_abs` (MEM), `status_path_abs`, `memory_outside_root`, `custom_resume`, `max_rounds` and `implement_enabled`.
 1. **Artifacts.** Check that `openspec/changes/<change>/proposal.md`, `specs/`, `design.md` and `tasks.md` exist. If one is missing, say which and stop.
 2. **Earlier plan.** If `plan.md` already exists, tell the user and ask whether to regenerate it (the old one stays in git).
 3. **Round 1.** Copy `${CLAUDE_SKILL_DIR}/../../prompts/plan.md` to a temporary file outside the workspace (`mktemp`), replacing:
@@ -53,4 +53,4 @@ Before waiting, show the user the "Live progress: tail -f …" line it prints, s
    ---
    ```
    If observations remain unresolved after the last round, add them at the end under `## Pending observations (Claude)`.
-8. **Summary.** Tell the user in a few lines: rounds used and what was fixed in each, scenario coverage, the diagrams included, the main risks, the "ADR proposals" the plan suggests (don't write ADRs without the user's OK), and the preferences you noted in step 5. End with how to open the conversation with the reviewer agent: `cursor-agent --resume <id>`, `agy --conversation <id>` or `claude --resume <id>`, depending on `cli`.
+8. **Summary.** Tell the user in a few lines: rounds used and what was fixed in each, scenario coverage, the diagrams included, the main risks, the "ADR proposals" the plan suggests (don't write ADRs without the user's OK), and the preferences you noted in step 5. End with how to open the conversation with the reviewer agent: `cursor-agent --resume <id>`, `agy --conversation <id>` or `claude --resume <id>`, depending on `cli`. When `implement_enabled` is true, close with the offer of `/specbaton:implement <change>` in one line, as the project's rules describe it, and wait for the user's answer.
