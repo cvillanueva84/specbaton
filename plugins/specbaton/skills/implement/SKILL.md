@@ -8,7 +8,7 @@ Implement a change's tasks through a subagent, unit by unit. The subagent writes
 
 Arguments: $ARGUMENTS. The change is the argument that isn't one of the others (when there's none, the active change in the memory layer's `NOW.md`; when that lists several or none, ask). `task`, `group` or `change` is the mode. `sonnet`, `opus`, `haiku`, `fable` or `inherit` is the model. A range of tasks looks like `1-3`, `2.1-2.4` or `1.2,3`. Arguments win over the settings for this run only.
 
-Reply to the user in their language.
+Reply to the user in their language. Run each of this skill's commands on its own and with absolute paths: a command chained with others doesn't match the skill's allowed tools and asks for permission, and the current folder can change between commands.
 
 ## 0. Settings
 
@@ -19,15 +19,16 @@ Run `python3 "${CLAUDE_SKILL_DIR}/../../scripts/config.py" "${CLAUDE_PROJECT_DIR
 
 ## 1. Units
 
-Run `python3 "${CLAUDE_SKILL_DIR}/../../scripts/tasks.py" openspec/changes/<change>/tasks.md --mode <mode> [--range <range>]`. It prints JSON: the change's `total`, `done` and `pending` counts, and the pending `units`, each with its tasks (`id`, `line`, `text`). With no units left, say so and suggest archiving the change, as `/opsx:apply` does. Otherwise tell the user in one line: the change, the mode, the number of units and the model.
+Run `python3 "${CLAUDE_SKILL_DIR}/../../scripts/tasks.py" <root>/openspec/changes/<change>/tasks.md --mode <mode> [--range <range>]`. It prints JSON: the change's `total`, `done` and `pending` checkboxes, and the pending `units`, each with its tasks (`id`, `line`, `lines`, `text`). With no units left, say so and suggest archiving the change, as `/opsx:apply` does. Otherwise tell the user in one line: the change, the mode, the number of units and the model.
 
 ## 2. Context
 
 Build `{{CONTEXT_FILES}}` as a list of paths, not contents. The subagent reads them itself.
 
-- With the `openspec` CLI installed, run `openspec instructions apply --change "<change>" --json`. Its `contextFiles` are the change's files; its `context`, when present, goes into `{{OPENSPEC_CONTEXT}}`. If its `state` is `blocked` (an artifact is missing), say which and stop.
+- With the `openspec` CLI installed, run `openspec instructions apply --change "<change>" --json`. Its `contextFiles` are the change's files; its `context`, when present, goes into `{{OPENSPEC_CONTEXT}}`. If its `state` is `blocked` (an artifact is missing), say which and stop. Its `progress.total` and `progress.complete` must equal `tasks.py`'s `total` and `done`: when they differ, some tasks are written in a form `tasks.py` doesn't read, so stop and show the user both counts.
 - Without the CLI, the change's files are `proposal.md`, `specs/`, `design.md` and `tasks.md` under `openspec/changes/<change>/`, and `{{OPENSPEC_CONTEXT}}` is `none`.
 - Add `plan.md` when it exists. If its frontmatter says `state: outdated`, tell the user and ask whether to go on with it before anything else.
+- Add STATUS (`status_path_abs`): the deviations from the spec already agreed for this change are there, with ADRs that may still be `proposed`.
 - Add the `accepted` ADRs of the change's units, from `<MEM>/decisions/README.md`, and `<MEM>/docs/reference/gates.md` when it exists.
 
 `{{REPOS}}` is each repo the change touches, from the `Unit | Repo/path` table in STATUS (`.` in a monorepo or a single repo; when STATUS doesn't say, ask). `{{RULES_FILE}}` is `rules_file_abs`. `{{ROOT}}` is `root`. `{{CHANGE}}` is the change's name.
@@ -38,18 +39,18 @@ Never switch branches. When STATUS maps the change's tasks to several tickets an
 
 ## 4. Each unit, in order
 
-1. **Snapshot.** For each repo in `{{REPOS}}`, from the root: `bash "${CLAUDE_SKILL_DIR}/../../scripts/snapshot.sh" <repo>`. Keep each line: the tree before the unit, and HEAD.
+1. **Snapshot.** For each repo in `{{REPOS}}`: `bash "${CLAUDE_SKILL_DIR}/../../scripts/snapshot.sh" <root>/<repo>`. Take one of `root` and of MEM too, when each is a git repo not already in that list (layer W's root, layer B's memory repo): the implementer may not touch the change's files or the memory. Keep each line: the tree before the unit, and HEAD.
 2. **Launch.** Fill the prompt in "The implementer's prompt" below, the text inside its fence. `{{UNIT}}` is the unit's tasks, each task's `text` exactly as `tasks.py` printed it. Launch a `general-purpose` subagent with the Agent tool, with that filled text as its whole prompt, `model` set to the model (left out for `inherit`), and `effort` set only when the settings or the arguments set one. Give it none of your own context or conclusions. Tell the user which unit is running, in one line. Wait for its notification before doing anything else in the change's repos, and never assume its result.
 3. **Report.** The subagent answers `done`, `blocked: spec` or `blocked: environment`, with the files it changed, the verification it ran and its doubts.
 4. **Check.** Take a new snapshot of each repo. Your check is limited to:
    - **the unit's diff:** `git -C <repo> diff --stat <tree before> <tree now>`, then the diff itself, in each repo. Read nothing else of the code unless the diff points you to it;
    - **the verification, run by you:** each task's own verification (a "Verify:" line or similar, in any language) when it states one; otherwise the tests of the code the unit touched, with the commands in `gates.md` when it exists. The subagent's report of its run isn't evidence: your run is;
    - **the spec:** the scenarios the tasks name or, when they name none, the scenarios of the spec whose capability the touched code implements, and the design decisions and ADRs the tasks cite;
-   - **the scope:** a change outside the unit's tasks is a defect.
+   - **the scope:** a change outside the unit's tasks is a defect, and so is any change in the snapshots of the root or MEM.
 
    If HEAD moved or the branch changed in any repo, stop and show the user what happened. Revert nothing.
 5. **Outcome.**
-   - **Pass:** check off the unit's tasks in `tasks.md` (`- [ ]` to `- [x]` on each task's `line`) and go on to the next unit.
+   - **Pass:** check off every checkbox of the unit's tasks in `tasks.md`: each line in a task's `lines`, with `x` in its box. Then go on to the next unit.
    - **Defect:** send the evidence (the scenario or task, the file and line, the failing output) to the same subagent with `SendMessage`, which keeps its context (load `SendMessage` with ToolSearch when it's deferred). Check its answer the same way. After `implement_max_retries` rounds that still fail, fix the unit yourself, with the smallest change, run its verification, check it off and note it for the summary.
    - **Spec problem**, reported by the subagent or found by your check: stop the run and show the user the evidence. Propose an ADR (`status: proposed`) and the change to the spec, the design or the tasks, as the project's rules say. Run nothing else until the user decides. When the subagent only misread the spec, it's not a spec problem: answer it with `SendMessage`.
    - **Environment problem** (a missing dependency, a service that isn't running, tests that already failed before the unit): stop and show it.

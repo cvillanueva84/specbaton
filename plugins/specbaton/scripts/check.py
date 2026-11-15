@@ -210,7 +210,9 @@ def main(argv):
     # Optional: delegated implementation (new in 0.5.0), only with OpenSpec, since its units come from tasks.md.
     if openspec:
         impl = cfg.get("implement")
-        if not isinstance(impl, dict):
+        if impl is False:
+            report("off", "delegated implementation")  # "false", the way the other features record a no
+        elif not isinstance(impl, dict):
             report("ask", "delegated implementation", "never offered (new in 0.5.0)")
         elif not impl.get("enabled"):
             report("off", "delegated implementation")

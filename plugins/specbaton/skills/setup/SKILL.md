@@ -74,7 +74,7 @@ Recommend one with the scan's signals: an organization remote, several authors o
   - the mode: `group` (recommended: one subagent per `## ` section of `tasks.md`), `task` (one per task) or `change` (one for all the pending tasks, for small changes);
   - the effort: empty for the model's own default, or `low` to `max`.
 
-  Say that it runs unattended only in accept-edits or auto mode: in the default permission mode, each edit the implementer makes asks the user.
+  Say what an unattended run needs: accept-edits mode approves file edits only, so the project's test commands (and `git diff`) must be allowed too (`/permissions`, or the project's `.claude/settings.json`), or the session must be in auto mode. Otherwise each edit and each test run asks the user.
 
 ## Phase 3. Create the layer (⏸ CONFIRM)
 

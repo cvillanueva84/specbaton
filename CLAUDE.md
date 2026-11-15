@@ -45,7 +45,7 @@ A Claude Code plugin marketplace with two plugins that install separately. `READ
 - A skill's frontmatter `description` says when it runs: the explicit command, or the trigger it reacts to.
 - Every script a skill runs is in its `allowed-tools`, as `Bash(python3 "${CLAUDE_SKILL_DIR}/../../scripts/<script>" *)`.
 - Every `{{PLACEHOLDER}}` in `prompts/` and `templates/` is replaced by the skill that copies the file. Add a new one in both places.
-- A skill reads nothing from its plugin's other folders with the Read tool: an installed plugin sits under `~/.claude/plugins/`, outside what a session may read, and a blocked read stops the skill. Scripts run through `allowed-tools`, and a subagent's prompt lives in the skill's own `SKILL.md`, as in `/specbaton:implement`. The reviewer's `prompts/` predate this rule.
+- A skill meant to run unattended reads nothing from its plugin's other folders with the Read tool. An installed plugin sits under `~/.claude/plugins/`, outside the project, so that read asks for permission, or is blocked in a headless run and stops the skill (it happened to `/specbaton:implement`). Such a skill runs its scripts through `allowed-tools` and keeps a subagent's prompt in its own `SKILL.md`. The interactive skills (the setups, handoff, the reviewer's plan and code) still read `templates/` and `prompts/`, where the user can approve the read.
 
 ## Scripts and hooks
 

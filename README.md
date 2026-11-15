@@ -248,7 +248,7 @@ To uninstall, `claude plugin uninstall specbaton@specbaton`. Your memory files, 
 
 - **A session doesn't open with a summary.** The hooks stay silent when there's no `.claude/specbaton.json` at or above the folder you opened, or when `python3` is missing. Run `/specbaton:resume-work` by hand, or `/specbaton:setup` if the project isn't set up.
 - **The handoff doesn't run when you say goodbye.** Short goodbyes ("bye", "good night", "chao") count only at the start or end of a message, so "the goodbye screen has a bug" isn't one. Run `/specbaton:handoff`, or add your own phrases in `farewell_patterns`.
-- **The implementer keeps asking for permission.** In the default permission mode, each edit the implementer makes asks you. For an unattended run, switch to accept-edits or auto mode (Shift+Tab cycles the modes) before `/specbaton:implement`.
+- **`/specbaton:implement` keeps asking for permission.** Accept-edits mode approves file edits only: the implementer's test commands, and the session's own verification runs, still ask. For an unattended run, allow the project's test commands (and `git diff`) in `/permissions` or the project's `.claude/settings.json`, or use auto mode (Shift+Tab cycles the modes).
 - **The reviewer stops with exit code 3** (the CLI isn't installed, signed in or trusting the folder), **4** (the agent changed files: nothing is reverted, and Claude shows what changed) **or 5** (another failure, with its log). The commands say which, and offer to go on without the reviewer when it can't run.
 
 ## Development

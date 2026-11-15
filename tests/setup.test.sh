@@ -108,6 +108,12 @@ out="$(python3 "$CHECK" "$P")"
 has "implement: on without the rules section" "$out" "missing${tab}rules: delegated implementation section${tab}templates/implement-rules.md isn't in the rules file"
 cat "$TPL/implement-rules.md" >> "$P/CLAUDE.md"; out="$(python3 "$CHECK" "$P")"
 has "implement: on with the rules section" "$out" "ok${tab}delegated implementation"
+python3 - "$P/.claude/specbaton.json" <<'PY2'
+import json, sys
+p = sys.argv[1]; c = json.load(open(p)); c["implement"] = False; json.dump(c, open(p, "w"))
+PY2
+out="$(python3 "$CHECK" "$P")"
+has "implement: false is turned down, not asked again" "$out" "off${tab}delegated implementation"
 
 # Obsidian's excluded folders.
 OB="$HERE/plugins/specbaton/scripts/obsidian.py"

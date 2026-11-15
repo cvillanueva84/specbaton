@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Tests the delegated implementation's scripts on throwaway files: tasks.py, which splits a change's tasks.md into
-# units by task, group or change.
+# Tests the delegated implementation on throwaway files: tasks.py (a change's tasks.md split into units, read with
+# OpenSpec's own checkbox grammar), snapshot.sh (git trees of the working tree) and the implement skill's text.
 # Usage: bash tests/implement.test.sh
 set -uo pipefail
 HERE="$(cd "$(dirname "$0")/.." && pwd)"
@@ -39,7 +39,8 @@ printf '%s\n' \
   '- [ ] Update the README' > "$F"
 
 tasks "$F"
-j "tasks: group mode" '[u["id"] for u in d["units"]] == ["1","2","3"] and (d["total"], d["done"], d["pending"]) == (6, 1, 5)'
+j "tasks: group mode" '[u["id"] for u in d["units"]] == ["1","2","3"] and (d["total"], d["done"], d["pending"]) == (7, 1, 6)'
+j "tasks: a nested checkbox's line is listed with its task" 'd["units"][0]["tasks"][0]["lines"] == [4, 6] and d["units"][0]["tasks"][1]["lines"] == [7]'
 j "tasks: sub-bullets and nested checkboxes stay in their task" \
   '[t["id"] for t in d["units"][0]["tasks"]] == ["1.2","1.3"] and d["units"][0]["tasks"][0]["line"] == 4 and d["units"][0]["tasks"][0]["text"].startswith("- [ ] 1.2 Write the migration") and "Creates three tables." in d["units"][0]["tasks"][0]["text"] and "a nested checkbox stays inside 1.2" in d["units"][0]["tasks"][0]["text"] and "1.3" not in d["units"][0]["tasks"][0]["text"]'
 j "tasks: a task without a number keeps its line" '[t["id"] for t in d["units"][1]["tasks"]] == ["2.1","L12"] and [t["id"] for t in d["units"][2]["tasks"]] == ["L16"]'
@@ -64,6 +65,33 @@ import json, sys
 a, b = (json.load(open(p)) for p in sys.argv[1:3])
 sys.exit(0 if a == b else 1)
 PY
+
+# OpenSpec's other checkbox forms: *, + and numbered bullets, extra spaces, an empty box, a letter suffix, X.
+G="$T/forms.md"
+printf '%s\n' '## 1. Forms' '' '* [ ] 1.1 star' '1. [ ] 1.2 numbered' '- [ ]  1.3 two spaces' '- [] 1.4 empty box' \
+  '- [ ] 1.5a suffix' '  - [ ] nested' '- [X] 1.6 done' '+ [ ] 1.7 plus' > "$G"
+tasks "$G"
+j "tasks: OpenSpec's other checkbox forms" '(d["total"], d["done"]) == (8, 1) and [t["id"] for t in d["units"][0]["tasks"]] == ["1.1","1.2","1.3","1.4","1.5a","1.7"] and d["units"][0]["tasks"][4]["lines"] == [7, 8]'
+tasks "$G" --mode task --range 1.5
+j "tasks: a letter suffix is in its number's range" '[u["id"] for u in d["units"]] == ["1.5a"]'
+printf '%s\n' '- [x] 1.1 done' '  - [ ] its open sub-task' > "$T/open-sub.md"; tasks "$T/open-sub.md"
+j "tasks: a done task with an open nested box stays pending" '(d["total"], d["done"]) == (2, 1) and [t["id"] for u in d["units"] for t in u["tasks"]] == ["1.1"]'
+printf '\xef\xbb\xbf- [ ] 1.1 first line\n' > "$T/bom.md"; tasks "$T/bom.md"
+j "tasks: a byte-order mark doesn't hide line 1" 'd["total"] == 1 and d["units"][0]["tasks"][0]["id"] == "1.1"'
+# The counts match OpenSpec's own, when its CLI is installed.
+if command -v openspec >/dev/null 2>&1; then
+  O="$T/os"; mkdir -p "$O/openspec/changes/a" "$O/openspec/changes/b"
+  cp "$F" "$O/openspec/changes/a/tasks.md"; cp "$G" "$O/openspec/changes/b/tasks.md"; printf '# x\n' | tee "$O/openspec/changes/a/proposal.md" > "$O/openspec/changes/b/proposal.md"
+  diffs=""
+  for c in a b; do
+    want="$(cd "$O" && openspec instructions apply --change "$c" --json 2>/dev/null | python3 -c 'import json,sys; p=json.load(sys.stdin)["progress"]; print(p["total"], p["complete"])')"
+    got="$(python3 "$S/tasks.py" "$O/openspec/changes/$c/tasks.md" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d["total"], d["done"])')"
+    [ "$want" = "$got" ] || diffs="$diffs $c: openspec $want, tasks.py $got;"
+  done
+  [ -z "$diffs" ] && ok "tasks: the counts match OpenSpec's" || no "tasks: the counts differ from OpenSpec's:$diffs"
+else
+  ok "tasks: the counts match OpenSpec's (skipped: openspec isn't installed)"
+fi
 
 printf '%s\n' '- [x] 1.1 a' > "$T/done.md"; tasks "$T/done.md"
 j "tasks: everything done" 'd["pending"] == 0 and d["units"] == []'
@@ -109,6 +137,12 @@ if [ -f "$SKILL" ] && grep -q "^## The implementer's prompt" "$SKILL" && ! grep 
 then ok "implement: the prompt lives in the skill"; else no "implement: the skill reads its prompt from outside its own file"; fi
 got="$(sed -n "/^## The implementer's prompt/,\$p" "$SKILL" | grep -o '{{[A-Z_]*}}' | sort -u | tr '\n' ' ')"
 [ "$got" = "{{CHANGE}} {{CONTEXT_FILES}} {{OPENSPEC_CONTEXT}} {{REPOS}} {{ROOT}} {{RULES_FILE}} {{UNIT}} " ] && ok "implement: the prompt's placeholders are the design's" || no "implement: the prompt's placeholders" "$got"
+ctx="$(sed -n '/^## 2. Context/,/^## 3/p' "$SKILL")"; loop="$(sed -n '/^## 4. Each unit/,/^## 5/p' "$SKILL")"
+grep -q '^- Add STATUS' <<<"$ctx" && ok "implement: STATUS is among the implementer's context files" || no "implement: STATUS isn't in the context files"
+grep -q 'progress' <<<"$ctx" && ok "implement: the units are checked against OpenSpec's progress" || no "implement: no check against OpenSpec's progress"
+grep -q 'tasks.py" <root>/' "$SKILL" && grep -q 'snapshot.sh" <root>/' "$SKILL" && ok "implement: the scripts get absolute paths" || no "implement: the scripts get paths relative to the current folder"
+grep -q 'MEM' <<<"$(grep -m1 -A3 'Snapshot' <<<"$loop")" && ok "implement: the root and MEM are snapshotted too" || no "implement: edits outside the change's repos go unseen"
+grep -q '`lines`' <<<"$loop" && ok "implement: every checkbox line of a passed task is checked off" || no "implement: only each task's first line is checked off"
 bad=""
 for skill in "$HERE"/plugins/*/skills/*/SKILL.md; do
   plugin="${skill%/skills/*}"
