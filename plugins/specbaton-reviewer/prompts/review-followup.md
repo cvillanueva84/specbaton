@@ -2,7 +2,7 @@
 
 Still **read-only**: don't edit, create or delete any file, and don't fix the code.
 
-I handled your review of change `{{CHANGE}}`. {{SCOPE}} This is my answer to each finding:
+I handled your review of change `{{CHANGE}}`. {{SCOPE}} This is my answer to each finding. The ones marked `T` come from another review pass you didn't see: validate them too, against the diff.
 
 {{RESPONSES}}
 

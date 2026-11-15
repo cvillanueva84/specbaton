@@ -12,7 +12,7 @@
 
 <p align="center">
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/license-MIT-blue"></a>
-  <img alt="Version 0.4.0" src="https://img.shields.io/badge/version-0.4.0-informational">
+  <img alt="Version 0.4.1" src="https://img.shields.io/badge/version-0.4.1-informational">
   <img alt="Claude Code plugins" src="https://img.shields.io/badge/Claude%20Code-plugins-d97757">
 </p>
 
@@ -85,6 +85,7 @@ sequenceDiagram
     Note over C: Decisions become ADRs (proposed)
     C->>C: Draft pull request
     C->>R: /specbaton-reviewer:code
+    Note over C: In parallel, a Claude subagent reviews<br/>as the team would, with only what the team sees
     R-->>C: review.md
     C->>You: Triage of each finding
     You->>C: Your call on each one
@@ -99,7 +100,7 @@ Step by step, for your first change:
 2. **Propose the change.** With OpenSpec, `/opsx:propose <what you want>` writes the proposal, specs, design and tasks under `openspec/changes/<change>/`. Without it, describe the change and Claude tracks it in its status file.
 3. **Get a plan** (with the reviewer). `/specbaton-reviewer:plan <change>`: the reviewer writes `plan.md`, and Claude sends back only what it can prove is missing (a scenario the plan doesn't cover, a path that doesn't exist), for up to 3 rounds.
 4. **Implement.** Work as usual. When you settle a decision, Claude writes it as an ADR with `status: proposed`; you change it to `accepted` when you agree. Accepted ADRs aren't contradicted later: a new ADR supersedes them.
-5. **Get a review** (with the reviewer). Open a draft pull request, then `/specbaton-reviewer:code <change>`: the reviewer writes `review.md`, Claude adds a triage, and you decide each finding. After the fixes, `/specbaton-reviewer:code <change> validate` checks each one until the review closes.
+5. **Get a review** (with the reviewer). Open a draft pull request, then `/specbaton-reviewer:code <change>`: the reviewer writes `review.md`, a Claude subagent adds a pass as the team's reviewer, Claude adds a triage, and you decide each finding. After the fixes, `/specbaton-reviewer:code <change> validate` checks each one until the review closes.
 6. **Close the session.** Say goodbye ("that's all for today", "hasta mañana"…) or run `/specbaton:handoff`. Claude writes the status, the ADRs, the indexes and the tasks, and proposes the commit of the memory.
 7. **Next day.** Open a new session: it resumes from the files, not from a summary of the chat.
 
@@ -117,9 +118,9 @@ Two habits make it work:
 | `/specbaton:handoff [change]` | When you say goodbye (a hook asks for it), when the context gets heavy, or before switching changes | Writes the status, creates the missing ADRs as `proposed`, updates the indexes, tasks and code graphs, and proposes the commit |
 | `/specbaton-reviewer:setup` | Once per project | Chooses the reviewer CLI and models, creates the review skill, runs three real read-only tests |
 | `/specbaton-reviewer:plan <change>` | Right after proposing a change | The reviewer writes `plan.md`; Claude sends back only verifiable gaps, up to 3 rounds in the same conversation |
-| `/specbaton-reviewer:code <change>` | Right after opening a draft pull request | The reviewer reviews the diff; Claude adds a triage where you decide each finding |
+| `/specbaton-reviewer:code <change>` | Right after opening a draft pull request | The reviewer reviews the diff and, in parallel, a Claude subagent reviews as the team's reviewer; Claude adds a triage where you decide each finding |
 | `/specbaton-reviewer:code <change> validate` | After the fixes | The reviewer validates each fix in the same conversation, until the review closes |
-| `/specbaton-reviewer:code <change> learn` | When the team comments on the pull request | Classifies what humans found that the agent missed, and proposes improvements to the review skill |
+| `/specbaton-reviewer:code <change> learn` | When the team comments on the pull request | Classifies what humans found that both passes missed, turns it into lessons, and proposes improvements to the review skill when a pattern repeats |
 
 ## The memory
 
@@ -172,6 +173,8 @@ Whatever the CLI, the real guarantee is the wrapper's: a git snapshot of the roo
 
 A reviewer from another model family brings other blind spots. Claude reviewing Claude works, and still brings a session with no memory of how the code was written, but it shares more of them: pick at least a different model, and remember it spends from the same account.
 
+**The reviewer pass.** The reviewer agent reviews against the author's own account (proposal, specs, design and ADRs), so a case the spec misses, the review misses too, and most reviewer CLIs can't run code. So round 1 of `/specbaton-reviewer:code` adds a pass as the team's reviewer: a Claude subagent (`pass_model`, `sonnet` by default) with a clean context that reads only what the team sees (the diff, the pull request's text, the ticket and the RFC, when there are ones) and the code, never the specs, the ADRs or the other review. It lists candidate failure paths first, verifies each by reading the code or running the library in a scratch folder, and blocks by what ships if the pull request merges as it is. Its findings join the triage marked `T`, next to the agent's `A`. What both passes miss becomes a lesson in the review skill's `references/lessons.md`, which the pass applies next time.
+
 The plan and the reviews live in the change's OpenSpec folder, so the reviewer works with OpenSpec changes.
 
 **Privacy.** The memory plugin sends nothing anywhere: its hooks only add text to the session, and the code graphs are built locally, without a model. The reviewer is the exception: the diff, the specs and the files it reads go to the CLI you choose, under your own account with that tool. The wrapper masks the usual secrets in the diff (`.env`-style keys, PEM keys, known token prefixes), but check what you send. The learning step reads the pull request's comments with `gh`.
@@ -199,6 +202,7 @@ Everything lives in `.claude/specbaton.json`, written by the setup skills:
     "review_model": "…",
     "base": "origin/main",
     "skill": "acme-code-review",
+    "pass_model": "sonnet",
     "exclude": [".obsidian"],
     "max_rounds": 3
   }
@@ -228,7 +232,7 @@ To uninstall, `claude plugin uninstall specbaton@specbaton`. Your memory files, 
 
 ## Development
 
-Version 0.4.0, early. See [CHANGELOG.md](CHANGELOG.md).
+Version 0.4.1 (memory) and 0.2.0 (reviewer), early. See [CHANGELOG.md](CHANGELOG.md).
 
 - `bash tests/hooks.test.sh` checks the memory plugin's hooks and settings with simulated hook inputs.
 - `bash tests/setup.test.sh` checks how a second setup finds what's in place, what's missing and what's new.

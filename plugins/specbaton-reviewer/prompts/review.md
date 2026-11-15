@@ -39,13 +39,14 @@ It's this review's method: run all its passes, on top of "What to review". Its "
 ## Calibration
 
 - Write in {{LANGUAGE}}.
-- Only findings with evidence: the diff's file and line.
+- Every finding cites the diff's file and line. That evidence shows the path exists in the code: when you can't confirm that something triggers it in production, the finding stays, marked `trigger unconfirmed`.
 - No cosmetic style, unless it breaks an explicit convention.
 - Severities:
   - **High:** blocks the merge.
   - **Medium:** must be fixed in this pull request.
-  - **Low:** can come later.
-  - **Hardening:** defensive and optional.
+  - **Low:** not a defect: style, naming, refactors, extra tests or wording.
+  - **Hardening:** protection against a state the system already prevents. Say what prevents it.
+- A defect on a path the pull request touches is High or Medium. None of this lowers it to Low: that nothing triggers it yet, that it's earlier code the pull request now depends on, that sibling code shares it, that it's in the pull request's text and not in the code, or that a fix is planned. Only a gap nobody can reach may wait, until a linked ticket fixes it.
 - If a severity has no findings, say so.
 - Finish all the research (reads and searches) before you start writing the answer. Once you start, write it whole, without using more tools. A review without findings is a valid result.
 

@@ -15,6 +15,7 @@
 - Write the text in `{{MEM}}/pull-request/<TICKET>-<description>.pr.md`, in {{TEAM_LANG}}, following the repo's template when it has one (`.github/pull_request_template.md`).
 - Two parts: **What changes**, in short bullets; and **Notes for reviewers**: where to start, the non-obvious decisions, the tests and their result, and the validation done. When they exist, two more bullets: **Trade-offs** (what was accepted knowingly, with its basis or saying it has none) and **Needs your call** (what the reviewer or the business decides).
 - Explain decisions in the text itself, without citing ADRs (they live outside the repo) or other agents' reviews.
+- Every number the diff adds or moves (waits, timeouts, retries, limits) carries its measurement or derivation in **Trade-offs** or in the ticket, because reviewers don't read the ADRs.
 - Show me the text before opening the pull request.
 
 ### Permissions
@@ -30,6 +31,7 @@
 | Hand over secrets | Never through the chat | — |
 - Commits follow the repo's style and never use `--no-verify`.
 - A pull request needs {{APPROVALS}} approvals. When reporting a pull request's status, count the ones it has and say how many are missing.
+- Before reporting a pull request or marking it ready, check its base, `mergeable` and head (`gh pr view <n> --json baseRefName,mergeable,headRefOid`), and the head again right before reporting.
 
 ### Stacked branches
 - A branch that depends on another starts from that branch, not from `{{INTEGRATION_BRANCH}}`.

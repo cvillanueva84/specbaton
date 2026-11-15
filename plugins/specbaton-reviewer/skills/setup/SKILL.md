@@ -74,6 +74,8 @@ Choose two models with the user, `plan_model` and `review_model`:
 - **No low-reasoning variants**, even if cheaper: in a real test, a low variant miscounted an ADR index (56 of 70) that the high one counted right. The low one is only for testing the setup.
 - Use the exact identifier `--model` accepts. An unknown name exits with an error (code 5) and lists the available ones.
 
+Ask also for `pass_model`, the model of the **reviewer pass**: in round 1 of `/specbaton-reviewer:code`, next to the reviewer agent, a Claude subagent with a clean context reviews the pull request with only what the team sees (the diff, the pull request's text, the ticket and the RFC), and can run the libraries. The default is `sonnet`; `off` turns the pass off.
+
 ## 4. The team's review skill (⏸ CONFIRM)
 
 The agent's review follows the user's own review skill, which improves over time from their human reviewers' comments (`/specbaton-reviewer:code <change> learn`). Look for existing code review skills:
@@ -93,7 +95,7 @@ Ask also:
 - where installed dependencies live, so the agent can read libraries' code: each unit's `node_modules/`, the virtualenv's `site-packages`, `vendor/`, Go's module cache…;
 - how code reaches production, in one line (for example "every merge to main deploys"), or nothing.
 
-Create `.claude/skills/<name>/` with `SKILL.md`, `SPEC.md`, `SOURCES.md` (from the templates, placeholders filled: `{{SKILL_NAME}}`, `{{SKILL_TITLE}}`, `{{PROJECT}}`, `{{DEPS_LOCATION}}`, `{{ROLLOUT_NOTES}}`, `{{ORIGIN}}`, `{{SOURCES}}`, `{{DATE}}`, `{{ORIGIN_SHORT}}`) and an empty `references/evidence/`. Tune pass 2's examples to the stack's real libraries (the SDKs and HTTP clients in the units' manifests) without inventing behavior: what you didn't check in the library's code stays generic. Then check it:
+Create `.claude/skills/<name>/` with `SKILL.md`, `SPEC.md`, `SOURCES.md` and `references/lessons.md` (from the templates, placeholders filled: `{{SKILL_NAME}}`, `{{SKILL_TITLE}}`, `{{PROJECT}}`, `{{DEPS_LOCATION}}`, `{{ROLLOUT_NOTES}}`, `{{ORIGIN}}`, `{{SOURCES}}`, `{{DATE}}`, `{{ORIGIN_SHORT}}`) and an empty `references/evidence/`. The lessons are the rules the reviewer pass applies; `SKILL.md` never references them, because it goes whole into the agent's prompt. Tune pass 2's examples to the stack's real libraries (the SDKs and HTTP clients in the units' manifests) without inventing behavior: what you didn't check in the library's code stays generic. Then check it:
 
 ```bash
 S=.claude/skills/<name>/SKILL.md
@@ -113,6 +115,7 @@ Merge a `reviewer` section into `.claude/specbaton.json`, keeping every other ke
   "review_model": "<model>",
   "base": "<the branch diffs compare against, such as origin/main>",
   "skill": "<the review skill's name>",
+  "pass_model": "sonnet",
   "exclude": [".obsidian"],
   "max_rounds": 3
 }
@@ -160,8 +163,8 @@ Show the user the three outputs, each run's duration (in its `.meta.json`) and t
 ## 7. Tell the user how it works
 
 - After proposing a change, `/specbaton-reviewer:plan` runs on its own. Claude reviews the plan, sends the agent only verifiable observations (up to 3 rounds) and saves `plan.md`.
-- When the draft pull request opens, `/specbaton-reviewer:code` runs on its own. The user decides each finding in the triage (fix, dismiss or postpone); Claude fixes only what's marked and fills in the responses.
+- When the draft pull request opens, `/specbaton-reviewer:code` runs on its own. Next to the reviewer agent, a Claude subagent reviews as the team's reviewer, with only what the team sees, and can run the libraries. The user decides each finding of both in the triage (fix, dismiss or postpone); Claude fixes only what's marked and fills in the responses.
 - After the fixes, `/specbaton-reviewer:code <change> validate`. The review closes with `pass`, or moves to `needs-decision` when round 3 still has open findings or the agent insists twice on something refuted.
-- When the team comments on the pull request, `/specbaton-reviewer:code <change> learn` turns what the agent missed into improvements to the review skill, with the user's approval. `SOURCES.md`'s detection rate says whether the skill improves.
+- When the team comments on the pull request, `/specbaton-reviewer:code <change> learn` turns what both passes missed into lessons (`references/lessons.md`) and, when a pattern repeats, into improvements to the review skill, with the user's approval. `SOURCES.md`'s detection rate says whether the review improves.
 - Switching reviewer (for example from Cursor to Antigravity) only changes `reviewer.cli` and the models in `.claude/specbaton.json`. The prompts and the skill stay the same.
 - Live logs go to `~/.specbaton-runs/<root name>/`, outside the workspace, and can be deleted at any time.

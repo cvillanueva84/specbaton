@@ -23,6 +23,7 @@ DEFAULTS = {
     "bin": "",
     "plan_model": "",
     "review_model": "",
+    "pass_model": "sonnet",
     "base": "origin/main",
     "skill": "",
     "exclude": ".obsidian",

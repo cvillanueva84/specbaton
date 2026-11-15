@@ -148,5 +148,22 @@ else echo "FAIL change_diff: unexpected output"; head -20 "$T/diff"; fail=$((fai
 # The workspace is untouched by the wrapper itself.
 [ -z "$(git status --porcelain)" ] && { echo "ok   the root has no stray files"; pass=$((pass + 1)); } || { echo "FAIL stray files:"; git status --porcelain; fail=$((fail + 1)); }
 
+# The reviewer pass: settings default, prompts and templates.
+R="$HERE/plugins/specbaton-reviewer"
+v="$(python3 "$SCRIPTS/reviewer_config.py" "$W" --key pass_model)"
+[ "$v" = "sonnet" ] && { echo "ok   pass_model defaults to sonnet"; pass=$((pass + 1)); } || { echo "FAIL pass_model default: $v"; fail=$((fail + 1)); }
+missing=""
+for pair in "review.md:code" "review-followup.md:code" "reviewer-pass.md:code" "plan.md:plan" "plan-followup.md:plan"; do
+  prompt="${pair%%:*}"; skill="${pair##*:}"
+  for ph in $(grep -o '{{[A-Z_]*}}' "$R/prompts/$prompt" | sort -u); do
+    grep -qF -- "$ph" "$R/skills/$skill/SKILL.md" || missing="$missing $prompt:$ph"
+  done
+done
+[ -z "$missing" ] && { echo "ok   every prompt placeholder is filled by its skill"; pass=$((pass + 1)); } || { echo "FAIL placeholders no skill fills:$missing"; fail=$((fail + 1)); }
+S="$R/templates/review-skill/SKILL.md"
+if [ "$(wc -c <"$S")" -lt 12288 ] && ! grep -q 'lessons' "$S"; then echo "ok   review skill template: under 12 KB, no reference to the lessons"; pass=$((pass + 1)); else echo "FAIL review skill template size or reference"; fail=$((fail + 1)); fi
+L="$R/templates/review-skill/references/lessons.md"
+[ "$(grep -c ' · seed · {{DATE}}$' "$L")" -eq 7 ] && { echo "ok   lessons template: seven seeds"; pass=$((pass + 1)); } || { echo "FAIL lessons seeds"; fail=$((fail + 1)); }
+
 echo "$pass passed, $fail failed"
 [ "$fail" -eq 0 ]
